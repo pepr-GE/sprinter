@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="cs"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<body>
+<div layout:fragment="content">
+    <div class="page-header">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-1">
+                        <li class="breadcrumb-item"><a th:href="@{/projects}">Projekty</a></li>
+                        <li class="breadcrumb-item"><a th:href="@{/projects/{id}(id=${project.id})}" th:text="${project.name}">Projekt</a></li>
+                        <li class="breadcrumb-item active">Board</li>
+                    </ol>
+                </nav>
+                <h1 class="h4 mb-0" th:if="${activeSprint != null}" th:text="${activeSprint.name}">Sprint</h1>
+                <div th:if="${activeSprint == null}" class="text-muted">Žádný aktivní sprint</div>
+            </div>
+            <div class="d-flex gap-2">
+                <a th:href="@{/projects/{id}/items/new(id=${project.id})}" class="btn btn-primary btn-sm">
+                    <i class="bi bi-plus-lg me-1"></i>Nová položka
+                </a>
+                <th:block th:if="${hasActiveSprint and currentUserRole != null and currentUserRole.canManageProject()}">
+                    <button type="button" class="btn btn-outline-warning btn-sm"
+                            data-bs-toggle="modal" data-bs-target="#completeSprintModal">
+                        <i class="bi bi-flag me-1"></i>Uzavřít sprint
+                    </button>
+                </th:block>
+                <th:block th:if="${!hasActiveSprint and currentUserRole != null and currentUserRole.canManageProject()}">
+                    <a th:href="@{/projects/{id}/sprints/new(id=${project.id})}" class="btn btn-outline-success btn-sm">
+                        <i class="bi bi-play me-1"></i>Nový sprint
+                    </a>
+                </th:block>
+            </div>
+        </div>
+    </div>
+
+    <!-- Kanban Board -->
+    <div class="container-fluid px-3">
+        <div th:if="${!hasActiveSprint}" class="text-center py-5">
+            <div class="empty-state">
+                <i class="bi bi-kanban empty-state-icon"></i>
+                <h4>Žádný aktivní sprint</h4>
+                <p class="text-muted">Vytvořte nový sprint a přiřaďte mu položky z backlogu.</p>
+                <a th:href="@{/projects/{id}/sprints/new(id=${project.id})}" class="btn btn-primary"
+                   th:if="${currentUserRole != null and currentUserRole.canManageProject()}">
+                    <i class="bi bi-plus-lg me-1"></i>Vytvořit sprint
+                </a>
+                <a th:href="@{/projects/{id}/backlog(id=${project.id})}" class="btn btn-outline-secondary ms-2">
+                    <i class="bi bi-list-task me-1"></i>Zobrazit backlog
+                </a>
+            </div>
+        </div>
+
+        <!-- Kanban sloupce -->
+        <div th:if="${hasActiveSprint}" class="kanban-board" id="kanbanBoard"
+             th:data-sprint-id="${activeSprint?.id}">
+            <!-- Sloupce se generují JavaScriptem z API /api/v1/sprints/{id}/items -->
+            <!-- Fallback pro no-JS zobrazení -->
+            <div class="kanban-column" th:each="status : ${T(com.sprinter.domain.enums.WorkItemStatus).kanbanStatuses()}">
+                <div class="kanban-column-header">
+                    <span th:text="${status.displayName}">Stav</span>
+                    <span class="badge bg-secondary ms-2 column-count" data-status="${status.name()}">0</span>
+                </div>
+                <div class="kanban-column-body droppable" th:data-status="${status.name()}">
+                    <div th:each="item : ${boardItems}"
+                         th:if="${item.status == status}"
+                         class="kanban-card draggable"
+                         th:data-id="${item.id}"
+                         th:data-status="${item.status.name()}">
+                        <div class="kanban-card-header d-flex justify-content-between align-items-start">
+                            <span th:class="'wi-type-badge ' + ${item.type.cssClass}" th:title="${item.type.displayName}">
+                                <i th:class="'bi ' + ${item.type.iconClass}"></i>
+                            </span>
+                            <span th:class="'priority-dot ' + ${item.priority.cssClass}"
+                                  th:title="${item.priority.displayName}"></span>
+                        </div>
+                        <div class="kanban-card-key text-muted small" th:text="${item.itemKey}">PROJ-1</div>
+                        <div class="kanban-card-title">
+                            <a th:href="@{/items/{id}(id=${item.id})}" th:text="${item.title}">Název</a>
+                        </div>
+                        <div class="kanban-card-footer d-flex justify-content-between align-items-center mt-2">
+                            <div class="kanban-labels">
+                                <span th:each="label : ${item.labels}"
+                                      class="label-chip small"
+                                      th:style="${'background: ' + label.color + '22; color: ' + label.color}"
+                                      th:text="${label.name}">Label</span>
+                            </div>
+                            <div class="d-flex align-items-center gap-1">
+                                <span th:if="${item.storyPoints != null}"
+                                      class="badge bg-secondary-subtle text-secondary"
+                                      th:text="${item.storyPoints}">5</span>
+                                <div th:if="${item.assignee != null}"
+                                     class="user-avatar-xs"
+                                     th:text="${item.assignee.initials}"
+                                     th:title="${item.assignee.fullName}">??</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modální okno pro uzavření sprintu -->
+    <div class="modal fade" id="completeSprintModal" tabindex="-1" th:if="${hasActiveSprint}">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Uzavřít sprint</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form th:action="@{/sprints/{id}/complete(id=${activeSprint?.id})}" method="post">
+                    <div class="modal-body">
+                        <p>Co udělat s nedokončenými položkami?</p>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="action"
+                                   id="moveToBacklog" value="backlog" checked/>
+                            <label class="form-check-label" for="moveToBacklog">
+                                Přesunout do backlogu
+                            </label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zrušit</button>
+                        <button type="submit" class="btn btn-warning">Uzavřít sprint</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<th:block layout:fragment="scripts">
+    <!-- Sortable.js pro drag & drop -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+    <!-- Kanban inicializace -->
+    <script th:src="@{/static/js/kanban.js}"></script>
+</th:block>
+</body>
+</html>

@@ -1,0 +1,120 @@
+##############################################################################
+# SPRINTER – hlavní konfigurace aplikace
+# Podrobnosti pro prostředí dev/prod jsou v application-dev.yml / application-prod.yml
+##############################################################################
+
+spring:
+  application:
+    name: SPRINTER
+
+  # ---- Profily ----
+  profiles:
+    active: dev          # výchozí profil; produkce změní na "prod"
+
+  # ---- Databáze ----
+  datasource:
+    url: jdbc:postgresql://localhost:5432/sprinter
+    username: sprinter
+    password: sprinter
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
+  # ---- JPA / Hibernate ----
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: validate         # Flyway řídí schéma – Hibernate jen validuje
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        use_sql_comments: true
+        default_schema: public
+
+  # ---- Flyway – správa databázových migrací ----
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+    encoding: UTF-8
+
+  # ---- Thymeleaf ----
+  thymeleaf:
+    cache: false           # v dev false; v prod se přepíše na true
+    encoding: UTF-8
+    mode: HTML
+    prefix: classpath:/templates/
+    suffix: .html
+
+  # ---- Spring MVC ----
+  mvc:
+    hiddenmethod:
+      filter:
+        enabled: true      # povolí PUT/DELETE z HTML formulářů přes _method parametr
+
+  # ---- Nahrávání souborů ----
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 25MB
+      max-request-size: 50MB
+
+  # ---- E-mail (volitelné) ----
+  mail:
+    host: localhost
+    port: 25
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
+
+# ---- Server ----
+server:
+  port: 8080
+  servlet:
+    context-path: /sprinter
+    session:
+      timeout: 8h
+      cookie:
+        name: SPRINTER_SESSION
+        http-only: true
+        secure: false        # v prod nastavit na true (HTTPS)
+  error:
+    whitelabel:
+      enabled: false         # vlastní stránky chyb
+
+# ---- Actuator ----
+management:
+  endpoints:
+    web:
+      base-path: /actuator
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+
+# ---- SPRINTER vlastní nastavení ----
+sprinter:
+  # Složka pro ukládání příloh
+  uploads:
+    dir: ${user.home}/sprinter-uploads
+    max-file-size-mb: 25
+
+  # Výchozí nastavení pro nové projekty
+  defaults:
+    sprint-length-days: 14
+    work-item-statuses: TO_DO,IN_PROGRESS,IN_REVIEW,DONE
+
+  # Bezpečnost
+  security:
+    bcrypt-strength: 12
+    remember-me-key: sprinter-remember-me-secret-change-in-prod
+    remember-me-validity-seconds: 2592000   # 30 dní

@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="cs"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<body>
+<div layout:fragment="content">
+    <div class="page-header">
+        <h1 class="h4 mb-0" th:text="${pageTitle}">Uživatel</h1>
+    </div>
+    <div class="container-fluid px-3">
+        <div class="row justify-content-center">
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-body">
+                        <form th:action="${user != null ? '/admin/users/' + user.id + '/edit' : '/admin/users/new'}"
+                              method="post"
+                              th:object="${userDto}">
+
+                            <div th:if="${#fields.hasGlobalErrors()}" class="alert alert-danger">
+                                <div th:each="err : ${#fields.globalErrors()}" th:text="${err}">Chyba</div>
+                            </div>
+
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label for="firstName" class="form-label">Křestní jméno *</label>
+                                    <input type="text" class="form-control" id="firstName" th:field="*{firstName}"
+                                           th:classappend="${#fields.hasErrors('firstName')} ? 'is-invalid' : ''"
+                                           required/>
+                                    <div class="invalid-feedback" th:errors="*{firstName}">Chyba</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="lastName" class="form-label">Příjmení *</label>
+                                    <input type="text" class="form-control" id="lastName" th:field="*{lastName}"
+                                           th:classappend="${#fields.hasErrors('lastName')} ? 'is-invalid' : ''"
+                                           required/>
+                                    <div class="invalid-feedback" th:errors="*{lastName}">Chyba</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="username" class="form-label">Přihlašovací jméno *</label>
+                                    <input type="text" class="form-control" id="username" th:field="*{username}"
+                                           th:classappend="${#fields.hasErrors('username')} ? 'is-invalid' : ''"
+                                           autocomplete="username" required/>
+                                    <div class="invalid-feedback" th:errors="*{username}">Chyba</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="email" class="form-label">E-mail *</label>
+                                    <input type="email" class="form-control" id="email" th:field="*{email}"
+                                           th:classappend="${#fields.hasErrors('email')} ? 'is-invalid' : ''"
+                                           required/>
+                                    <div class="invalid-feedback" th:errors="*{email}">Chyba</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="password" class="form-label">
+                                        Heslo <span th:if="${user == null}">*</span>
+                                        <span th:if="${user != null}" class="text-muted small">(ponechat prázdné = nezměnit)</span>
+                                    </label>
+                                    <input type="password" class="form-control" id="password" th:field="*{password}"
+                                           th:classappend="${#fields.hasErrors('password')} ? 'is-invalid' : ''"
+                                           autocomplete="new-password"
+                                           th:required="${user == null}"/>
+                                    <div class="invalid-feedback" th:errors="*{password}">Chyba</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="systemRole" class="form-label">Systémová role</label>
+                                    <select class="form-select" id="systemRole" th:field="*{systemRole}">
+                                        <option th:each="role : ${systemRoles}"
+                                                th:value="${role.name()}"
+                                                th:text="${role.displayName}"
+                                                th:selected="${userDto.systemRole == role}">Role</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="d-flex gap-2 mt-4 pt-3 border-top">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-check-lg me-1"></i>
+                                    <span th:text="${user != null ? 'Uložit změny' : 'Vytvořit uživatele'}">Uložit</span>
+                                </button>
+                                <a th:href="@{/admin/users}" class="btn btn-outline-secondary">Zrušit</a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

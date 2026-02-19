@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="cs"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<body>
+<div layout:fragment="content">
+    <div class="page-header">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-1">
+                        <li class="breadcrumb-item"><a th:href="@{/projects}">Projekty</a></li>
+                        <li class="breadcrumb-item"><a th:href="@{/projects/{id}(id=${project.id})}" th:text="${project.name}">Projekt</a></li>
+                        <li class="breadcrumb-item active">Backlog</li>
+                    </ol>
+                </nav>
+                <h1 class="h4 mb-0">Backlog</h1>
+            </div>
+            <div class="d-flex gap-2">
+                <a th:href="@{/projects/{id}/items/new(id=${project.id})}" class="btn btn-primary btn-sm">
+                    <i class="bi bi-plus-lg me-1"></i>Nová položka
+                </a>
+                <a th:href="@{/projects/{id}/sprints/new(id=${project.id})}"
+                   class="btn btn-outline-success btn-sm"
+                   th:if="${currentUserRole != null and currentUserRole.canManageProject()}">
+                    <i class="bi bi-lightning me-1"></i>Nový sprint
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="container-fluid px-3">
+
+        <!-- Sprinty -->
+        <div th:each="sprint : ${sprints}" th:if="${sprint.status.name() != 'CANCELLED'}" class="sprint-section mb-4">
+            <div class="sprint-header d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center gap-2">
+                    <button class="btn btn-sm btn-icon sprint-toggle" type="button"
+                            data-bs-toggle="collapse"
+                            th:data-bs-target="${'#sprint-' + sprint.id}">
+                        <i class="bi bi-chevron-down"></i>
+                    </button>
+                    <span th:class="'badge sprint-status-badge ' + ${sprint.status.cssClass}"
+                          th:text="${sprint.status.displayName}">Stav</span>
+                    <strong th:text="${sprint.name}">Sprint</strong>
+                    <span class="text-muted small" th:if="${sprint.startDate != null}">
+                        (<span th:text="${#temporals.format(sprint.startDate, 'd.M.')}">1.1.</span>
+                        –
+                        <span th:text="${sprint.endDate != null ? #temporals.format(sprint.endDate, 'd.M.yyyy') : '?'}">31.1.2025</span>)
+                    </span>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="text-muted small">
+                        <span th:text="${sprint.workItems.size()}">0</span> položek
+                    </span>
+                    <div class="dropdown" th:if="${currentUserRole != null and currentUserRole.canManageProject()}">
+                        <button class="btn btn-sm btn-icon" data-bs-toggle="dropdown">
+                            <i class="bi bi-three-dots"></i>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li th:if="${sprint.status.name() == 'PLANNING'}">
+                                <form th:action="@{/sprints/{id}/start(id=${sprint.id})}" method="post">
+                                    <button class="dropdown-item text-success" type="submit">
+                                        <i class="bi bi-play me-2"></i>Spustit sprint
+                                    </button>
+                                </form>
+                            </li>
+                            <li th:if="${sprint.status.name() == 'ACTIVE'}">
+                                <form th:action="@{/sprints/{id}/complete(id=${sprint.id})}" method="post">
+                                    <button class="dropdown-item text-warning" type="submit">
+                                        <i class="bi bi-flag me-2"></i>Uzavřít sprint
+                                    </button>
+                                </form>
+                            </li>
+                            <li>
+                                <a class="dropdown-item"
+                                   th:href="@{/sprints/{id}/edit(id=${sprint.id})}">
+                                    <i class="bi bi-pencil me-2"></i>Upravit
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Položky sprintu -->
+            <div th:id="${'sprint-' + sprint.id}" class="collapse show sprint-items-container">
+                <div th:if="${sprint.workItems.empty}" class="backlog-empty text-muted">
+                    <i class="bi bi-inbox me-2"></i>Sprint je prázdný – přiřaďte položky z backlogu
+                </div>
+                <div th:each="item : ${sprint.workItems}" class="backlog-row">
+                    <span th:class="'wi-type-badge ' + ${item.type.cssClass}" th:title="${item.type.displayName}">
+                        <i th:class="'bi ' + ${item.type.iconClass}"></i>
+                    </span>
+                    <span th:class="'priority-dot ' + ${item.priority.cssClass}" th:title="${item.priority.displayName}"></span>
+                    <span class="backlog-key text-muted" th:text="${item.itemKey}">PROJ-1</span>
+                    <a th:href="@{/items/{id}(id=${item.id})}" th:text="${item.title}" class="backlog-title">Název</a>
+                    <div class="backlog-meta ms-auto d-flex align-items-center gap-2">
+                        <span th:each="label : ${item.labels}"
+                              class="label-chip small"
+                              th:style="${'background: ' + label.color + '22; color: ' + label.color}"
+                              th:text="${label.name}">Label</span>
+                        <span th:if="${item.storyPoints != null}"
+                              class="badge bg-secondary-subtle text-secondary"
+                              th:text="${item.storyPoints + ' SP'}">5 SP</span>
+                        <span th:class="'badge status-badge ' + ${item.status.cssClass}"
+                              th:text="${item.status.displayName}">Stav</span>
+                        <div th:if="${item.assignee != null}" class="user-avatar-xs"
+                             th:text="${item.assignee.initials}"
+                             th:title="${item.assignee.fullName}">??</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Backlog (bez sprintu) -->
+        <div class="sprint-section">
+            <div class="sprint-header d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center gap-2">
+                    <button class="btn btn-sm btn-icon sprint-toggle" type="button"
+                            data-bs-toggle="collapse" data-bs-target="#backlogItems">
+                        <i class="bi bi-chevron-down"></i>
+                    </button>
+                    <strong>Backlog</strong>
+                    <span class="text-muted small">
+                        (<span th:text="${backlogItems.size()}">0</span> položek)
+                    </span>
+                </div>
+                <a th:href="@{/projects/{id}/items/new(id=${project.id})}" class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-plus me-1"></i>Přidat
+                </a>
+            </div>
+
+            <div id="backlogItems" class="collapse show">
+                <div th:if="${backlogItems.empty}" class="backlog-empty text-muted">
+                    <i class="bi bi-inbox me-2"></i>Backlog je prázdný
+                </div>
+                <div th:each="item : ${backlogItems}" class="backlog-row">
+                    <span th:class="'wi-type-badge ' + ${item.type.cssClass}" th:title="${item.type.displayName}">
+                        <i th:class="'bi ' + ${item.type.iconClass}"></i>
+                    </span>
+                    <span th:class="'priority-dot ' + ${item.priority.cssClass}" th:title="${item.priority.displayName}"></span>
+                    <span class="backlog-key text-muted" th:text="${item.itemKey}">PROJ-1</span>
+                    <a th:href="@{/items/{id}(id=${item.id})}" th:text="${item.title}" class="backlog-title">Název</a>
+                    <div class="backlog-meta ms-auto d-flex align-items-center gap-2">
+                        <span th:each="label : ${item.labels}"
+                              class="label-chip small"
+                              th:style="${'background: ' + label.color + '22; color: ' + label.color}"
+                              th:text="${label.name}">Label</span>
+                        <span th:if="${item.storyPoints != null}"
+                              class="badge bg-secondary-subtle text-secondary"
+                              th:text="${item.storyPoints + ' SP'}">5 SP</span>
+                        <div th:if="${item.assignee != null}" class="user-avatar-xs"
+                             th:text="${item.assignee.initials}"
+                             th:title="${item.assignee.fullName}">??</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+</body>
+</html>

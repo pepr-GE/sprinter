@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="cs"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<body>
+<div layout:fragment="content">
+    <div class="page-header">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-1">
+                <li class="breadcrumb-item"><a th:href="@{/projects}">Projekty</a></li>
+                <li class="breadcrumb-item"><a th:href="@{/projects/{id}(id=${project.id})}" th:text="${project.name}">Projekt</a></li>
+                <li class="breadcrumb-item active">Reporty</li>
+            </ol>
+        </nav>
+        <h1 class="h4 mb-0">Reporty projektu</h1>
+    </div>
+
+    <div class="container-fluid px-3">
+        <div class="row g-4">
+
+            <!-- Celkové dokončení -->
+            <div class="col-md-4">
+                <div class="card text-center">
+                    <div class="card-body py-4">
+                        <div class="completion-circle mb-3">
+                            <svg viewBox="0 0 36 36" class="completion-svg">
+                                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                      fill="none" stroke="var(--border-color)" stroke-width="2"/>
+                                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                      fill="none" stroke="var(--accent)" stroke-width="2"
+                                      stroke-dasharray="${completionPercent}, 100"
+                                      th:stroke-dasharray="${completionPercent + ', 100'}"/>
+                            </svg>
+                            <div class="completion-value" th:text="${completionPercent + '%'}">0%</div>
+                        </div>
+                        <h5 class="mb-1">Celkové dokončení</h5>
+                        <p class="text-muted small mb-0">Na základě uzavřených položek</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Graf stavů položek -->
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Stav pracovních položek</h5>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="statusChart" height="200"
+                                th:data-project-id="${project.id}"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabulka stavů -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Přehled dle stavu</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Stav</th>
+                                    <th class="text-end">Počet</th>
+                                    <th class="text-end">Podíl</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="entry : ${statusCounts}">
+                                    <td>
+                                        <span th:class="'badge status-badge me-2 ' + ${entry.key.cssClass}"
+                                              th:text="${entry.key.displayName}">Stav</span>
+                                    </td>
+                                    <td class="text-end" th:text="${entry.value}">0</td>
+                                    <td class="text-end">
+                                        <span th:with="total=${#numbers.sequence(0,0)}"
+                                              th:text="${@reportService.getProjectCompletionPercent(project.id) + '%'}">0%</span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sprint přehled -->
+            <div class="col-md-6" th:if="${!sprints.empty}">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Sprinty</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Sprint</th>
+                                    <th>Stav</th>
+                                    <th class="text-end">Položek</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="sprint : ${sprints}">
+                                    <td>
+                                        <a th:href="@{/sprints/{id}(id=${sprint.id})}"
+                                           th:text="${sprint.name}">Sprint</a>
+                                    </td>
+                                    <td>
+                                        <span th:class="'badge ' + ${sprint.status.cssClass}"
+                                              th:text="${sprint.status.displayName}">Stav</span>
+                                    </td>
+                                    <td class="text-end" th:text="${sprint.workItems.size()}">0</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<th:block layout:fragment="scripts">
+    <!-- Chart.js pro grafy -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <script th:src="@{/static/js/reports.js}"></script>
+</th:block>
+</body>
+</html>

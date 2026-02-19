@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="cs"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<body>
+<div layout:fragment="content">
+    <div class="page-header">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-1">
+                <li class="breadcrumb-item"><a th:href="@{/projects}">Projekty</a></li>
+                <li class="breadcrumb-item"><a th:href="@{/projects/{id}(id=${project.id})}" th:text="${project.name}">Projekt</a></li>
+                <li class="breadcrumb-item active" th:text="${pageTitle}">Nová položka</li>
+            </ol>
+        </nav>
+        <h1 class="h4 mb-0" th:text="${pageTitle}">Nová položka</h1>
+    </div>
+
+    <div class="container-fluid px-3">
+        <div class="row justify-content-center">
+            <div class="col-lg-9">
+                <div class="card">
+                    <div class="card-body">
+                        <form th:action="${item != null ? '/items/' + item.id + '/edit' : '/projects/' + project.id + '/items'}"
+                              method="post"
+                              th:object="${workItemDto}">
+
+                            <!-- Globální chyby -->
+                            <div th:if="${#fields.hasGlobalErrors()}" class="alert alert-danger">
+                                <div th:each="err : ${#fields.globalErrors()}" th:text="${err}">Chyba</div>
+                            </div>
+
+                            <div class="row g-3">
+
+                                <!-- Typ položky -->
+                                <div class="col-md-3">
+                                    <label for="type" class="form-label">Typ *</label>
+                                    <select class="form-select" id="type" th:field="*{type}" required>
+                                        <option value="">Vyberte typ</option>
+                                        <option th:each="t : ${workItemTypes}"
+                                                th:value="${t.name()}"
+                                                th:text="${t.displayName}"
+                                                th:selected="${workItemDto.type == t}">Typ</option>
+                                    </select>
+                                    <div class="form-text text-danger" th:if="${#fields.hasErrors('type')}"
+                                         th:errors="*{type}">Chyba</div>
+                                </div>
+
+                                <!-- Název -->
+                                <div class="col-md-9">
+                                    <label for="title" class="form-label">Název *</label>
+                                    <input type="text" class="form-control" id="title" th:field="*{title}"
+                                           placeholder="Stručný a výstižný název položky..."
+                                           th:classappend="${#fields.hasErrors('title')} ? 'is-invalid' : ''"
+                                           required/>
+                                    <div class="invalid-feedback" th:errors="*{title}">Chyba</div>
+                                </div>
+
+                                <!-- Popis -->
+                                <div class="col-12">
+                                    <label for="description" class="form-label">Popis</label>
+                                    <textarea class="form-control" id="description" th:field="*{description}"
+                                              rows="8"
+                                              placeholder="Detailní popis, kroky k reprodukci, akceptační kritéria..."></textarea>
+                                </div>
+
+                                <!-- Priorita -->
+                                <div class="col-md-3">
+                                    <label for="priority" class="form-label">Priorita</label>
+                                    <select class="form-select" id="priority" th:field="*{priority}">
+                                        <option th:each="p : ${priorities}"
+                                                th:value="${p.name()}"
+                                                th:text="${p.displayName}"
+                                                th:selected="${workItemDto.priority == p}">Priorita</option>
+                                    </select>
+                                </div>
+
+                                <!-- Přiřazeno -->
+                                <div class="col-md-4">
+                                    <label for="assigneeId" class="form-label">Přiřazeno</label>
+                                    <select class="form-select" id="assigneeId" th:field="*{assigneeId}">
+                                        <option value="">Nepřiřazeno</option>
+                                        <option th:each="u : ${projectMembers}"
+                                                th:value="${u.id}"
+                                                th:text="${u.fullName}"
+                                                th:selected="${workItemDto.assigneeId == u.id}">Uživatel</option>
+                                    </select>
+                                </div>
+
+                                <!-- Story body -->
+                                <div class="col-md-2">
+                                    <label for="storyPoints" class="form-label">Story body</label>
+                                    <input type="number" class="form-control" id="storyPoints"
+                                           th:field="*{storyPoints}"
+                                           min="0" max="999"
+                                           placeholder="SP"/>
+                                </div>
+
+                                <!-- Sprint -->
+                                <div class="col-md-3">
+                                    <label for="sprintId" class="form-label">Sprint</label>
+                                    <select class="form-select" id="sprintId" th:field="*{sprintId}">
+                                        <option value="">Backlog</option>
+                                        <option th:each="s : ${sprints}"
+                                                th:value="${s.id}"
+                                                th:text="${s.name}"
+                                                th:if="${!s.terminal}"
+                                                th:selected="${workItemDto.sprintId == s.id}">Sprint</option>
+                                    </select>
+                                </div>
+
+                                <!-- Datum zahájení -->
+                                <div class="col-md-3">
+                                    <label for="startDate" class="form-label">Datum zahájení</label>
+                                    <input type="date" class="form-control datepicker" id="startDate"
+                                           th:field="*{startDate}"/>
+                                </div>
+
+                                <!-- Termín dokončení -->
+                                <div class="col-md-3">
+                                    <label for="dueDate" class="form-label">Termín dokončení</label>
+                                    <input type="date" class="form-control datepicker" id="dueDate"
+                                           th:field="*{dueDate}"/>
+                                </div>
+
+                                <!-- Odhad hodin -->
+                                <div class="col-md-2">
+                                    <label for="estimatedHours" class="form-label">Odhad (h)</label>
+                                    <input type="number" class="form-control" id="estimatedHours"
+                                           th:field="*{estimatedHours}"
+                                           min="0" step="0.5"
+                                           placeholder="0"/>
+                                </div>
+
+                                <!-- Štítky -->
+                                <div class="col-md-4">
+                                    <label class="form-label">Štítky</label>
+                                    <div class="label-selector">
+                                        <div th:each="label : ${labels}" class="form-check form-check-inline">
+                                            <input class="form-check-input" type="checkbox"
+                                                   th:id="${'label-' + label.id}"
+                                                   name="labelIds"
+                                                   th:value="${label.id}"
+                                                   th:checked="${workItemDto.labelIds.contains(label.id)}"/>
+                                            <label class="form-check-label label-chip"
+                                                   th:for="${'label-' + label.id}"
+                                                   th:style="${'background: ' + label.color + '22; color: ' + label.color}"
+                                                   th:text="${label.name}">Label</label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+
+                            <!-- Akční tlačítka -->
+                            <div class="d-flex gap-2 mt-4 pt-3 border-top">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-check-lg me-1"></i>
+                                    <span th:text="${item != null ? 'Uložit změny' : 'Vytvořit položku'}">Uložit</span>
+                                </button>
+                                <a th:href="${item != null ? '/items/' + item.id : '/projects/' + project.id + '/backlog'}"
+                                   class="btn btn-outline-secondary">
+                                    Zrušit
+                                </a>
+                            </div>
+
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

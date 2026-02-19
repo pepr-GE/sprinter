@@ -1,0 +1,15 @@
+##############################################################################
+# SPRINTER – vývojové prostředí
+##############################################################################
+spring:
+  jpa:
+    show-sql: true
+  thymeleaf:
+    cache: false
+
+logging:
+  level:
+    com.sprinter: DEBUG
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql: TRACE

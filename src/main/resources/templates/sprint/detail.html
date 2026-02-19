@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="cs"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      layout:decorate="~{layout/base}">
+<body>
+<div layout:fragment="content">
+
+    <!-- ===== PAGE HEADER ===== -->
+    <div class="page-header">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+            <div>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-1">
+                        <li class="breadcrumb-item"><a th:href="@{/projects}">Projekty</a></li>
+                        <li class="breadcrumb-item">
+                            <a th:href="@{/projects/{id}(id=${project.id})}" th:text="${project.name}">Projekt</a>
+                        </li>
+                        <li class="breadcrumb-item">
+                            <a th:href="@{/projects/{id}/backlog(id=${project.id})}">Backlog</a>
+                        </li>
+                        <li class="breadcrumb-item active" th:text="${sprint.name}">Sprint</li>
+                    </ol>
+                </nav>
+                <div class="d-flex align-items-center gap-2">
+                    <h1 class="h4 mb-0" th:text="${sprint.name}">Sprint</h1>
+                    <!-- Status badge -->
+                    <span th:switch="${sprint.status.name()}">
+                        <span th:case="'PLANNING'" class="badge bg-secondary">Plánování</span>
+                        <span th:case="'ACTIVE'"   class="badge bg-success">Aktivní</span>
+                        <span th:case="'COMPLETED'" class="badge bg-primary">Dokončen</span>
+                        <span th:case="'CANCELLED'" class="badge bg-danger">Zrušen</span>
+                    </span>
+                </div>
+                <div class="text-muted small mt-1" th:if="${sprint.goal}" th:text="${sprint.goal}"></div>
+            </div>
+
+            <!-- Akce sprintu -->
+            <div class="d-flex gap-2 flex-wrap" sec:authorize="isAuthenticated()">
+                <th:block th:if="${sprint.status.name() == 'PLANNING' and currentUserRole != null and currentUserRole.canManageProject()}">
+                    <form th:action="@{/sprints/{id}/start(id=${sprint.id})}" method="post" class="d-inline">
+                        <button type="submit" class="btn btn-success btn-sm"
+                                onclick="return confirm('Spustit sprint?')">
+                            <i class="bi bi-play-fill me-1"></i>Spustit sprint
+                        </button>
+                    </form>
+                    <a th:href="@{/sprints/{id}/edit(id=${sprint.id})}" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-pencil me-1"></i>Upravit
+                    </a>
+                </th:block>
+
+                <th:block th:if="${sprint.status.name() == 'ACTIVE' and currentUserRole != null and currentUserRole.canManageProject()}">
+                    <button type="button" class="btn btn-warning btn-sm"
+                            data-bs-toggle="modal" data-bs-target="#completeSprintModal">
+                        <i class="bi bi-flag me-1"></i>Uzavřít sprint
+                    </button>
+                    <a th:href="@{/sprints/{id}/edit(id=${sprint.id})}" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-pencil me-1"></i>Upravit
+                    </a>
+                </th:block>
+
+                <th:block th:if="${sprint.status.name() != 'COMPLETED' and sprint.status.name() != 'CANCELLED' and currentUserRole != null and currentUserRole.canManageProject()}">
+                    <form th:action="@{/sprints/{id}/cancel(id=${sprint.id})}" method="post" class="d-inline">
+                        <button type="submit" class="btn btn-outline-danger btn-sm"
+                                onclick="return confirm('Opravdu zrušit sprint? Všechny položky se vrátí do backlogu.')">
+                            <i class="bi bi-x-lg me-1"></i>Zrušit sprint
+                        </button>
+                    </form>
+                </th:block>
+            </div>
+        </div>
+    </div>
+
+    <div class="container-fluid px-3 py-3">
+
+        <!-- ===== SPRINT METADATA ===== -->
+        <div class="row g-3 mb-4">
+            <!-- Datum -->
+            <div class="col-sm-6 col-md-3">
+                <div class="card h-100">
+                    <div class="card-body py-3">
+                        <div class="text-muted small mb-1"><i class="bi bi-calendar-range me-1"></i>Datum sprintu</div>
+                        <div th:if="${sprint.startDate != null or sprint.endDate != null}">
+                            <span th:if="${sprint.startDate != null}"
+                                  th:text="${#temporals.format(sprint.startDate, 'd. M. yyyy')}">-</span>
+                            <span th:if="${sprint.startDate != null and sprint.endDate != null}"> – </span>
+                            <span th:if="${sprint.endDate != null}"
+                                  th:text="${#temporals.format(sprint.endDate, 'd. M. yyyy')}">-</span>
+                        </div>
+                        <div th:if="${sprint.startDate == null and sprint.endDate == null}"
+                             class="text-muted">Nenastaveno</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Počet položek -->
+            <div class="col-sm-6 col-md-3">
+                <div class="card h-100">
+                    <div class="card-body py-3">
+                        <div class="text-muted small mb-1"><i class="bi bi-list-task me-1"></i>Položky</div>
+                        <div class="fw-semibold" th:text="${boardItems.size()}">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dokončeno -->
+            <div class="col-sm-6 col-md-3">
+                <div class="card h-100">
+                    <div class="card-body py-3">
+                        <div class="text-muted small mb-1"><i class="bi bi-check-circle me-1"></i>Dokončeno</div>
+                        <div class="fw-semibold text-success"
+                             th:text="${boardItems.stream().filter(i -> i.status.name() == 'DONE').count()}">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Story body -->
+            <div class="col-sm-6 col-md-3">
+                <div class="card h-100">
+                    <div class="card-body py-3">
+                        <div class="text-muted small mb-1"><i class="bi bi-diamond me-1"></i>Story body</div>
+                        <div class="fw-semibold"
+                             th:text="${boardItems.stream().filter(i -> i.storyPoints != null).mapToInt(i -> i.storyPoints).sum() + ' / ' + boardItems.stream().mapToInt(i -> i.storyPoints != null ? i.storyPoints : 0).sum()}">0</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== PROGRESS BAR ===== -->
+        <div class="mb-4" th:if="${boardItems.size() > 0}">
+            <div th:with="
+                total=${boardItems.size()},
+                done=${boardItems.stream().filter(i -> i.status.name() == 'DONE').count()},
+                pct=${boardItems.size() > 0 ? (boardItems.stream().filter(i -> i.status.name() == 'DONE').count() * 100 / boardItems.size()) : 0}">
+                <div class="d-flex justify-content-between small text-muted mb-1">
+                    <span>Postup sprintu</span>
+                    <span th:text="${done} + ' / ' + ${total} + ' dokončeno (' + ${pct} + ' %)'">0 / 0</span>
+                </div>
+                <div class="progress" style="height: 8px;">
+                    <div class="progress-bar bg-success"
+                         role="progressbar"
+                         th:style="'width: ' + ${pct} + '%'"
+                         th:attr="aria-valuenow=${pct}"
+                         aria-valuemin="0" aria-valuemax="100"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== POLOŽKY SPRINTU ===== -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="mb-0">Položky sprintu</h6>
+                <th:block th:if="${currentUserRole != null and currentUserRole.canEditContent()}">
+                    <a th:href="@{/projects/{id}/items/new(id=${project.id})}" class="btn btn-primary btn-sm">
+                        <i class="bi bi-plus-lg me-1"></i>Přidat položku
+                    </a>
+                </th:block>
+            </div>
+
+            <!-- Prázdný stav -->
+            <div th:if="${boardItems.empty}" class="card-body text-center py-5">
+                <div class="empty-state">
+                    <i class="bi bi-inbox empty-state-icon"></i>
+                    <h5 class="empty-state-title">Sprint je prázdný</h5>
+                    <p class="empty-state-text">Přiřaďte položky z backlogu nebo vytvořte nové.</p>
+                    <a th:href="@{/projects/{id}/backlog(id=${project.id})}" class="btn btn-outline-primary">
+                        <i class="bi bi-kanban me-1"></i>Přejít na backlog
+                    </a>
+                </div>
+            </div>
+
+            <!-- Tabulka položek -->
+            <div th:if="${!boardItems.empty}" class="table-responsive">
+                <table class="table table-hover table-sm mb-0 align-middle">
+                    <thead class="table-light">
+                    <tr>
+                        <th style="width:90px">Klíč</th>
+                        <th>Název</th>
+                        <th style="width:110px">Typ</th>
+                        <th style="width:120px">Stav</th>
+                        <th style="width:100px">Priorita</th>
+                        <th style="width:60px" class="text-center">SP</th>
+                        <th style="width:150px">Řešitel</th>
+                        <th style="width:110px">Splnit do</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="item : ${boardItems}">
+                        <td>
+                            <a th:href="@{/items/{key}(key=${item.itemKey})}"
+                               class="font-monospace text-decoration-none fw-medium"
+                               th:text="${item.itemKey}">PROJ-1</a>
+                        </td>
+                        <td>
+                            <a th:href="@{/items/{key}(key=${item.itemKey})}"
+                               class="text-decoration-none text-body"
+                               th:text="${item.title}">Název položky</a>
+                        </td>
+                        <td>
+                            <span th:class="'wi-type-badge wi-type-' + ${item.type.name().toLowerCase()}"
+                                  th:text="${item.type.displayName}">Typ</span>
+                        </td>
+                        <td>
+                            <span th:class="'status-badge status-' + ${item.status.name().toLowerCase().replace('_','-')}"
+                                  th:text="${item.status.displayName}">Stav</span>
+                        </td>
+                        <td>
+                            <span th:if="${item.priority != null}"
+                                  th:class="'priority-badge priority-' + ${item.priority.name().toLowerCase()}"
+                                  th:text="${item.priority.displayName}">Priorita</span>
+                        </td>
+                        <td class="text-center">
+                            <span th:if="${item.storyPoints != null}" th:text="${item.storyPoints}"
+                                  class="badge bg-light text-dark border">-</span>
+                            <span th:if="${item.storyPoints == null}" class="text-muted">–</span>
+                        </td>
+                        <td>
+                            <span th:if="${item.assignee != null}">
+                                <span class="avatar avatar-xs me-1"
+                                      th:text="${item.assignee.initials}"
+                                      th:title="${item.assignee.fullName}"></span>
+                                <span class="small" th:text="${item.assignee.fullName}"></span>
+                            </span>
+                            <span th:if="${item.assignee == null}" class="text-muted small">Nepřiřazeno</span>
+                        </td>
+                        <td>
+                            <span th:if="${item.dueDate != null}"
+                                  th:class="${item.dueDate.isBefore(T(java.time.LocalDate).now()) and item.status.name() != 'DONE' ? 'text-danger small' : 'small'}"
+                                  th:text="${#temporals.format(item.dueDate, 'd. M.')}">–</span>
+                            <span th:if="${item.dueDate == null}" class="text-muted small">–</span>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div><!-- /container-fluid -->
+
+    <!-- ===== MODAL: Uzavření sprintu ===== -->
+    <div class="modal fade" id="completeSprintModal" tabindex="-1" aria-labelledby="completeSprintModalLabel">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form th:action="@{/sprints/{id}/complete(id=${sprint.id})}" method="post">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="completeSprintModalLabel">Uzavřít sprint</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>
+                            Nedokončené položky lze přesunout do dalšího sprintu nebo ponechat v backlogu.
+                        </p>
+                        <div class="mb-3" th:if="${allSprints != null and !allSprints.empty}">
+                            <label for="moveToSprintId" class="form-label">Přesunout nedokončené do sprintu</label>
+                            <select class="form-select" id="moveToSprintId" name="moveToSprintId">
+                                <option value="">– Ponechat v backlogu –</option>
+                                <option th:each="s : ${allSprints}"
+                                        th:if="${s.id != sprint.id and s.status.name() == 'PLANNING'}"
+                                        th:value="${s.id}"
+                                        th:text="${s.name}">Sprint</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Zrušit</button>
+                        <button type="submit" class="btn btn-warning">
+                            <i class="bi bi-flag me-1"></i>Uzavřít sprint
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+</div>
+</body>
+</html>

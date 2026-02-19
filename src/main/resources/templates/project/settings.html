@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="cs"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<body>
+<div layout:fragment="content">
+    <div class="page-header">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-1">
+                <li class="breadcrumb-item"><a th:href="@{/projects}">Projekty</a></li>
+                <li class="breadcrumb-item"><a th:href="@{/projects/{id}(id=${project.id})}" th:text="${project.name}">Projekt</a></li>
+                <li class="breadcrumb-item active">Nastavení</li>
+            </ol>
+        </nav>
+        <h1 class="h4 mb-0">Nastavení projektu</h1>
+    </div>
+
+    <div class="container-fluid px-3 py-3">
+        <div class="row justify-content-center">
+            <div class="col-lg-7">
+
+                <!-- Základní nastavení -->
+                <div class="card mb-4">
+                    <div class="card-header"><h6 class="mb-0">Základní informace</h6></div>
+                    <div class="card-body">
+                        <form th:action="@{/projects/{id}/settings(id=${project.id})}"
+                              method="post"
+                              th:object="${projectDto}">
+
+                            <div class="row g-3">
+                                <div class="col-12">
+                                    <label for="name" class="form-label">Název projektu *</label>
+                                    <input type="text" class="form-control" id="name" th:field="*{name}"
+                                           th:classappend="${#fields.hasErrors('name')} ? 'is-invalid' : ''"
+                                           required/>
+                                    <div class="invalid-feedback" th:errors="*{name}">Chyba</div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <label class="form-label">Klíč projektu</label>
+                                    <div class="form-control bg-light font-monospace"
+                                         th:text="${project.projectKey}">KEY</div>
+                                    <div class="form-text">Klíč projektu nelze po vytvoření změnit</div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <label for="status" class="form-label">Stav projektu</label>
+                                    <select class="form-select" id="status" th:field="*{status}">
+                                        <option th:each="s : ${projectStatuses}"
+                                                th:value="${s.name()}"
+                                                th:text="${s.displayName}"
+                                                th:selected="${projectDto.status == s}">Stav</option>
+                                    </select>
+                                </div>
+
+                                <div class="col-12">
+                                    <label for="description" class="form-label">Popis</label>
+                                    <textarea class="form-control" id="description" th:field="*{description}"
+                                              rows="4"></textarea>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <label for="startDate" class="form-label">Datum zahájení</label>
+                                    <input type="date" class="form-control" id="startDate" th:field="*{startDate}"/>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="endDate" class="form-label">Plánované ukončení</label>
+                                    <input type="date" class="form-control" id="endDate" th:field="*{endDate}"/>
+                                </div>
+                            </div>
+
+                            <div class="d-flex gap-2 mt-4 pt-3 border-top">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-check-lg me-1"></i>Uložit nastavení
+                                </button>
+                                <a th:href="@{/projects/{id}(id=${project.id})}"
+                                   class="btn btn-outline-secondary">Zpět</a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Nebezpečná zóna -->
+                <div class="card border-danger">
+                    <div class="card-header text-danger">
+                        <h6 class="mb-0"><i class="bi bi-exclamation-triangle me-2"></i>Nebezpečná zóna</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="fw-medium">Archivovat projekt</div>
+                                <div class="text-muted small">Archivovaný projekt bude skrytý, ale data budou zachována.</div>
+                            </div>
+                            <form th:action="@{/projects/{id}/archive(id=${project.id})}" method="post"
+                                  onsubmit="return confirm('Opravdu archivovat tento projekt?')">
+                                <button type="submit" class="btn btn-outline-danger btn-sm">
+                                    <i class="bi bi-archive me-1"></i>Archivovat
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

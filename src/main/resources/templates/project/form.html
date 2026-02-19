@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="cs"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<body>
+<div layout:fragment="content">
+    <div class="page-header">
+        <h1 class="h4 mb-0" th:text="${pageTitle}">Nový projekt</h1>
+    </div>
+
+    <div class="container-fluid px-3">
+        <div class="row justify-content-center">
+            <div class="col-lg-7">
+                <div class="card">
+                    <div class="card-body">
+                        <form th:action="@{/projects/new}" method="post"
+                              th:object="${projectDto}" id="projectForm">
+                            <input type="hidden" name="parentId" th:value="${parentId}"/>
+
+                            <!-- Chyby -->
+                            <div th:if="${#fields.hasGlobalErrors()}" class="alert alert-danger">
+                                <div th:each="err : ${#fields.globalErrors()}" th:text="${err}">Chyba</div>
+                            </div>
+
+                            <!-- Nadřazený projekt -->
+                            <div th:if="${parent != null}" class="alert alert-info d-flex align-items-center gap-2 mb-3">
+                                <i class="bi bi-diagram-3"></i>
+                                <div>Vytváříte podprojekt projektu
+                                    <strong th:text="${parent.name}">Rodič</strong>
+                                </div>
+                            </div>
+
+                            <div class="row g-3">
+
+                                <!-- Název projektu -->
+                                <div class="col-12">
+                                    <label for="name" class="form-label">Název projektu *</label>
+                                    <input type="text" class="form-control" id="name" th:field="*{name}"
+                                           placeholder="např. Vývoj e-shopu"
+                                           th:classappend="${#fields.hasErrors('name')} ? 'is-invalid' : ''"
+                                           required
+                                           oninput="suggestProjectKey(this.value)"/>
+                                    <div class="invalid-feedback" th:errors="*{name}">Chyba</div>
+                                </div>
+
+                                <!-- Klíč projektu -->
+                                <div class="col-md-4">
+                                    <label for="projectKey" class="form-label">Klíč projektu *
+                                        <i class="bi bi-info-circle text-muted"
+                                           title="Unikátní zkratka (2-10 velkých písmen). Používá se jako prefix čísla úkolů: KEY-1"></i>
+                                    </label>
+                                    <input type="text" class="form-control text-uppercase" id="projectKey"
+                                           th:field="*{projectKey}"
+                                           placeholder="KEY"
+                                           maxlength="10"
+                                           pattern="[A-Z][A-Z0-9]{1,9}"
+                                           th:classappend="${#fields.hasErrors('projectKey')} ? 'is-invalid' : ''"
+                                           required/>
+                                    <div class="invalid-feedback" th:errors="*{projectKey}">Chyba</div>
+                                    <div class="form-text">
+                                        <span id="keyStatus" class="text-muted small">Příklady: PROJ, DEV, WEB</span>
+                                    </div>
+                                </div>
+
+                                <!-- Popis -->
+                                <div class="col-12">
+                                    <label for="description" class="form-label">Popis projektu</label>
+                                    <textarea class="form-control" id="description" th:field="*{description}"
+                                              rows="4"
+                                              placeholder="Cíl projektu, kontext, scope..."></textarea>
+                                </div>
+
+                                <!-- Datum zahájení -->
+                                <div class="col-md-6">
+                                    <label for="startDate" class="form-label">Datum zahájení</label>
+                                    <input type="date" class="form-control" id="startDate" th:field="*{startDate}"/>
+                                </div>
+
+                                <!-- Datum ukončení -->
+                                <div class="col-md-6">
+                                    <label for="endDate" class="form-label">Plánované ukončení</label>
+                                    <input type="date" class="form-control" id="endDate" th:field="*{endDate}"/>
+                                </div>
+
+                            </div>
+
+                            <div class="d-flex gap-2 mt-4 pt-3 border-top">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-check-lg me-1"></i>Vytvořit projekt
+                                </button>
+                                <a th:href="${parent != null ? '/projects/' + parent.id : '/projects'}"
+                                   class="btn btn-outline-secondary">Zrušit</a>
+                            </div>
+
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<th:block layout:fragment="scripts">
+<script>
+/**
+ * Navrhne klíč projektu z názvu voláním API.
+ * @param {string} name - název projektu
+ */
+async function suggestProjectKey(name) {
+    if (name.length < 2) return;
+    try {
+        const resp = await fetch('/sprinter/api/v1/projects/suggest-key?name=' + encodeURIComponent(name));
+        const data = await resp.json();
+        const keyField = document.getElementById('projectKey');
+        if (!keyField.value || keyField.dataset.autoGenerated === 'true') {
+            keyField.value = data.key;
+            keyField.dataset.autoGenerated = 'true';
+        }
+    } catch (e) { /* tiché selhání */ }
+}
+
+document.getElementById('projectKey')?.addEventListener('input', function() {
+    this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    this.dataset.autoGenerated = 'false';
+});
+</script>
+</th:block>
+</body>
+</html>

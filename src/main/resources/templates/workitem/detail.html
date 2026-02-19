@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="cs"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      layout:decorate="~{layout/base}">
+<body>
+<div layout:fragment="content">
+
+    <div class="page-header">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-1">
+                <li class="breadcrumb-item"><a th:href="@{/projects}">Projekty</a></li>
+                <li class="breadcrumb-item"><a th:href="@{/projects/{id}(id=${project.id})}" th:text="${project.name}">Projekt</a></li>
+                <li class="breadcrumb-item active" th:text="${item.itemKey}">PROJ-1</li>
+            </ol>
+        </nav>
+    </div>
+
+    <div class="container-fluid px-3">
+        <div class="row g-4">
+
+            <!-- LEVÝ PANEL: Hlavní obsah -->
+            <div class="col-lg-8">
+
+                <!-- Hlavička položky -->
+                <div class="wi-detail-header mb-4">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <span th:class="'wi-type-badge ' + ${item.type.cssClass}">
+                            <i th:class="'bi ' + ${item.type.iconClass}"></i>
+                            <span th:text="${item.type.displayName}">Typ</span>
+                        </span>
+                        <span class="text-muted" th:text="${item.itemKey}">PROJ-1</span>
+                        <div class="dropdown ms-auto" th:if="${currentUserRole != null and currentUserRole.canEditContent()}">
+                            <button class="btn btn-sm btn-icon" data-bs-toggle="dropdown">
+                                <i class="bi bi-three-dots"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li>
+                                    <a class="dropdown-item" th:href="@{/items/{id}/edit(id=${item.id})}">
+                                        <i class="bi bi-pencil me-2"></i>Upravit
+                                    </a>
+                                </li>
+                                <li th:if="${currentUserRole.canManageProject()}">
+                                    <hr class="dropdown-divider"/>
+                                    <form th:action="@{/items/{id}/delete(id=${item.id})}" method="post"
+                                          onsubmit="return confirm('Opravdu smazat tuto položku?')">
+                                        <button class="dropdown-item text-danger" type="submit">
+                                            <i class="bi bi-trash me-2"></i>Smazat
+                                        </button>
+                                    </form>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <h1 class="h3 mb-3" th:text="${item.title}">Název položky</h1>
+
+                    <!-- Stav (přepínatelný) -->
+                    <div class="d-flex align-items-center gap-3 flex-wrap">
+                        <div class="dropdown" th:if="${currentUserRole != null and currentUserRole.canEditContent()}">
+                            <button th:class="'btn btn-sm status-badge ' + ${item.status.cssClass} + ' dropdown-toggle'"
+                                    data-bs-toggle="dropdown">
+                                <span th:text="${item.status.displayName}">Stav</span>
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li th:each="s : ${statuses}">
+                                    <form th:action="@{/items/{id}/status(id=${item.id})}" method="post">
+                                        <input type="hidden" name="status" th:value="${s.name()}"/>
+                                        <input type="hidden" name="returnTo" th:value="${'/items/' + item.id}"/>
+                                        <button class="dropdown-item"
+                                                th:classappend="${item.status == s} ? ' active' : ''"
+                                                type="submit"
+                                                th:text="${s.displayName}">Stav</button>
+                                    </form>
+                                </li>
+                            </ul>
+                        </div>
+                        <span th:if="${currentUserRole == null or !currentUserRole.canEditContent()}"
+                              th:class="'badge status-badge ' + ${item.status.cssClass}"
+                              th:text="${item.status.displayName}">Stav</span>
+
+                        <span th:class="'badge ' + ${item.priority.cssClass}">
+                            <i th:class="'bi ' + ${item.priority.iconClass} + ' me-1'"></i>
+                            <span th:text="${item.priority.displayName}">Priorita</span>
+                        </span>
+
+                        <!-- Štítky -->
+                        <span th:each="label : ${item.labels}"
+                              class="label-chip"
+                              th:style="${'background: ' + label.color + '22; color: ' + label.color}"
+                              th:text="${label.name}">Label</span>
+                    </div>
+                </div>
+
+                <!-- Popis -->
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between">
+                        <h6 class="mb-0">Popis</h6>
+                        <a th:href="@{/items/{id}/edit(id=${item.id})}"
+                           class="btn btn-sm btn-icon"
+                           th:if="${currentUserRole != null and currentUserRole.canEditContent()}">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                    </div>
+                    <div class="card-body">
+                        <div th:if="${item.description == null or item.description.isBlank()}"
+                             class="text-muted">Bez popisu</div>
+                        <div th:if="${item.description != null and !item.description.isBlank()}"
+                             class="markdown-content"
+                             th:utext="${item.description}">Popis</div>
+                    </div>
+                </div>
+
+                <!-- Dílčí položky (children) -->
+                <div class="card mb-4" th:if="${!item.children.empty}">
+                    <div class="card-header">
+                        <h6 class="mb-0">Dílčí položky
+                            <span class="badge bg-secondary ms-2" th:text="${item.children.size()}">0</span>
+                        </h6>
+                    </div>
+                    <div class="card-body p-0">
+                        <div th:each="child : ${item.children}" class="backlog-row">
+                            <span th:class="'wi-type-badge ' + ${child.type.cssClass}">
+                                <i th:class="'bi ' + ${child.type.iconClass}"></i>
+                            </span>
+                            <span class="backlog-key text-muted" th:text="${child.itemKey}">PROJ-2</span>
+                            <a th:href="@{/items/{id}(id=${child.id})}" th:text="${child.title}" class="backlog-title">Název</a>
+                            <span th:class="'badge status-badge ms-auto ' + ${child.status.cssClass}"
+                                  th:text="${child.status.displayName}">Stav</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Komentáře -->
+                <div class="card" id="comments">
+                    <div class="card-header">
+                        <h6 class="mb-0">Komentáře
+                            <span class="badge bg-secondary ms-2" th:text="${item.comments.size()}">0</span>
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <!-- Existující komentáře -->
+                        <div th:each="comment : ${item.comments}" class="comment-item mb-3">
+                            <div class="d-flex gap-3">
+                                <div class="user-avatar-sm flex-shrink-0"
+                                     th:text="${comment.author.initials}">??</div>
+                                <div class="flex-grow-1">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <div>
+                                            <strong th:text="${comment.author.fullName}">Jméno</strong>
+                                            <span class="text-muted small ms-2"
+                                                  th:text="${#temporals.format(comment.createdAt, 'd.M.yyyy HH:mm')}">1.1.2025</span>
+                                            <span th:if="${comment.edited}" class="text-muted small ms-1">(upraveno)</span>
+                                        </div>
+                                        <div th:if="${comment.author.id == currentUserId or currentUserRole?.canManageProject()}">
+                                            <form th:action="@{/comments/{id}/delete(id=${comment.id})}" method="post"
+                                                  class="d-inline">
+                                                <input type="hidden" name="workItemId" th:value="${item.id}"/>
+                                                <button class="btn btn-sm btn-icon text-danger" type="submit"
+                                                        title="Smazat komentář">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                    <div class="comment-content" th:text="${comment.content}">Obsah komentáře</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Formulář pro nový komentář -->
+                        <div class="mt-3">
+                            <div class="d-flex gap-3">
+                                <div class="user-avatar-sm flex-shrink-0"
+                                     sec:authentication="principal.user.initials">??</div>
+                                <form th:action="@{/items/{id}/comments(id=${item.id})}" method="post"
+                                      class="flex-grow-1">
+                                    <textarea class="form-control mb-2" name="content" rows="3"
+                                              placeholder="Přidat komentář..." required></textarea>
+                                    <button type="submit" class="btn btn-sm btn-primary">
+                                        <i class="bi bi-send me-1"></i>Odeslat
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- PRAVÝ PANEL: Metadata -->
+            <div class="col-lg-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">Detaily</h6>
+                    </div>
+                    <div class="card-body">
+                        <dl class="wi-detail-dl">
+
+                            <dt>Přiřazeno</dt>
+                            <dd>
+                                <div th:if="${item.assignee != null}" class="d-flex align-items-center gap-2">
+                                    <div class="user-avatar-sm" th:text="${item.assignee.initials}">??</div>
+                                    <span th:text="${item.assignee.fullName}">Jméno</span>
+                                </div>
+                                <span th:if="${item.assignee == null}" class="text-muted">Nepřiřazeno</span>
+                            </dd>
+
+                            <dt>Nahlásil</dt>
+                            <dd>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="user-avatar-sm" th:text="${item.reporter.initials}">??</div>
+                                    <span th:text="${item.reporter.fullName}">Jméno</span>
+                                </div>
+                            </dd>
+
+                            <dt>Sprint</dt>
+                            <dd>
+                                <a th:if="${item.sprint != null}"
+                                   th:href="@{/sprints/{id}(id=${item.sprint.id})}"
+                                   th:text="${item.sprint.name}">Sprint</a>
+                                <span th:if="${item.sprint == null}" class="text-muted">Backlog</span>
+                            </dd>
+
+                            <dt>Priorita</dt>
+                            <dd>
+                                <span th:class="'badge ' + ${item.priority.cssClass}">
+                                    <i th:class="'bi ' + ${item.priority.iconClass} + ' me-1'"></i>
+                                    <span th:text="${item.priority.displayName}">Priorita</span>
+                                </span>
+                            </dd>
+
+                            <dt th:if="${item.storyPoints != null}">Story body</dt>
+                            <dd th:if="${item.storyPoints != null}"
+                                th:text="${item.storyPoints}">5</dd>
+
+                            <dt th:if="${item.startDate != null}">Zahájení</dt>
+                            <dd th:if="${item.startDate != null}"
+                                th:text="${#temporals.format(item.startDate, 'd.M.yyyy')}">1.1.2025</dd>
+
+                            <dt th:if="${item.dueDate != null}">Termín</dt>
+                            <dd th:if="${item.dueDate != null}">
+                                <span th:text="${#temporals.format(item.dueDate, 'd.M.yyyy')}"
+                                      th:classappend="${item.dueDate.isBefore(T(java.time.LocalDate).now()) and !item.done} ? ' text-danger' : ''">1.1.2025</span>
+                            </dd>
+
+                            <dt th:if="${item.estimatedHours != null}">Odhad hodin</dt>
+                            <dd th:if="${item.estimatedHours != null}"
+                                th:text="${item.estimatedHours + ' h'}">8 h</dd>
+
+                            <dt th:if="${item.loggedHours != null and item.loggedHours > 0}">Odpracováno</dt>
+                            <dd th:if="${item.loggedHours != null and item.loggedHours > 0}"
+                                th:text="${item.loggedHours + ' h'}">4 h</dd>
+
+                            <dt>Vytvořeno</dt>
+                            <dd th:text="${#temporals.format(item.createdAt, 'd.M.yyyy HH:mm')}">1.1.2025</dd>
+
+                            <dt>Aktualizováno</dt>
+                            <dd th:text="${item.updatedAt != null ? #temporals.format(item.updatedAt, 'd.M.yyyy HH:mm') : '–'}">1.1.2025</dd>
+
+                        </dl>
+
+                        <!-- Přílohy -->
+                        <div th:if="${!item.attachments.empty}" class="mt-3">
+                            <h6 class="small text-muted mb-2">PŘÍLOHY</h6>
+                            <div th:each="att : ${item.attachments}" class="attachment-item">
+                                <i class="bi bi-paperclip me-1"></i>
+                                <a th:href="@{/uploads/attachments/{wiId}/{file}(wiId=${item.id},file=${att.storedFilename})}"
+                                   th:text="${att.originalFilename}"
+                                   target="_blank">Soubor</a>
+                                <span class="text-muted small ms-1" th:text="${att.humanReadableSize}">0 B</span>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+</body>
+</html>

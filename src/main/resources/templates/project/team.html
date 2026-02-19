@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="cs"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<body>
+<div layout:fragment="content">
+    <div class="page-header">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-1">
+                <li class="breadcrumb-item"><a th:href="@{/projects}">Projekty</a></li>
+                <li class="breadcrumb-item"><a th:href="@{/projects/{id}(id=${project.id})}" th:text="${project.name}">Projekt</a></li>
+                <li class="breadcrumb-item active">Tým</li>
+            </ol>
+        </nav>
+        <h1 class="h4 mb-0">Projektový tým</h1>
+    </div>
+
+    <div class="container-fluid px-3 py-3">
+        <div class="row g-4">
+
+            <!-- Přidání člena (jen pro manažery) -->
+            <div class="col-lg-4" th:if="${currentUserRole != null and currentUserRole.canManageProject()}">
+                <div class="card">
+                    <div class="card-header"><h6 class="mb-0">Přidat člena</h6></div>
+                    <div class="card-body">
+                        <form th:action="@{/projects/{id}/team/add(id=${project.id})}" method="post">
+                            <div class="mb-3">
+                                <label for="userId" class="form-label">Uživatel</label>
+                                <select class="form-select" id="userId" name="userId" required>
+                                    <option value="">Vyberte uživatele...</option>
+                                    <option th:each="u : ${availableUsers}"
+                                            th:value="${u.id}"
+                                            th:text="${u.fullName + ' (@' + u.username + ')'}">Uživatel</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="role" class="form-label">Role v projektu</label>
+                                <select class="form-select" id="role" name="role" required>
+                                    <option th:each="r : ${projectRoles}"
+                                            th:value="${r.name()}"
+                                            th:text="${r.displayName}">Role</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="bi bi-person-plus me-1"></i>Přidat do týmu
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Seznam členů -->
+            <div th:class="${currentUserRole != null and currentUserRole.canManageProject()} ? 'col-lg-8' : 'col-lg-12'">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">Členové týmu
+                            <span class="badge bg-secondary ms-2" th:text="${members.size()}">0</span>
+                        </h6>
+                    </div>
+                    <div class="card-body p-0">
+                        <div th:if="${members.empty}" class="text-center py-4 text-muted">
+                            Tým nemá žádné členy
+                        </div>
+                        <div class="table-responsive" th:if="${!members.empty}">
+                            <table class="table table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Uživatel</th>
+                                        <th>Role</th>
+                                        <th>Přidán</th>
+                                        <th th:if="${currentUserRole != null and currentUserRole.canManageProject()}"
+                                            class="text-end">Akce</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr th:each="member : ${members}">
+                                        <td>
+                                            <div class="d-flex align-items-center gap-2">
+                                                <div class="user-avatar-sm" th:text="${member.user.initials}">??</div>
+                                                <div>
+                                                    <div th:text="${member.user.fullName}">Jméno</div>
+                                                    <small class="text-muted" th:text="${'@' + member.user.username}">@username</small>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <form th:if="${currentUserRole != null and currentUserRole.canManageProject()}"
+                                                  th:action="@{/projects/{id}/team/{uid}/role(id=${project.id},uid=${member.user.id})}"
+                                                  method="post" class="d-inline">
+                                                <select class="form-select form-select-sm" name="role"
+                                                        onchange="this.form.submit()">
+                                                    <option th:each="r : ${projectRoles}"
+                                                            th:value="${r.name()}"
+                                                            th:text="${r.displayName}"
+                                                            th:selected="${member.projectRole == r}">Role</option>
+                                                </select>
+                                            </form>
+                                            <span th:if="${currentUserRole == null or !currentUserRole.canManageProject()}"
+                                                  th:text="${member.projectRole.displayName}">Role</span>
+                                        </td>
+                                        <td class="text-muted small"
+                                            th:text="${#temporals.format(member.joinedAt, 'd.M.yyyy')}">1.1.2025</td>
+                                        <td class="text-end" th:if="${currentUserRole != null and currentUserRole.canManageProject()}">
+                                            <form th:action="@{/projects/{id}/team/{uid}/remove(id=${project.id},uid=${member.user.id})}"
+                                                  method="post"
+                                                  onsubmit="return confirm('Odebrat tohoto člena z týmu?')">
+                                                <button class="btn btn-sm btn-outline-danger" type="submit">
+                                                    <i class="bi bi-person-dash"></i>
+                                                </button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="cs"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<head>
+    <title>Dashboard | SPRINTER</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <div class="page-header">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="h3 mb-1">
+                    Dobrý den, <span class="text-accent" sec:authentication="principal.user.firstName">Uživatel</span>!
+                </h1>
+                <p class="text-muted mb-0">Přehled vašich projektů a úkolů</p>
+            </div>
+            <a th:href="@{/projects/new}" class="btn btn-primary">
+                <i class="bi bi-plus-lg me-1"></i>Nový projekt
+            </a>
+        </div>
+    </div>
+
+    <div class="container-fluid px-3">
+
+        <!-- STATISTICKÁ KARTA: Přiřazené úkoly -->
+        <div class="row g-4 mb-4">
+            <div class="col-sm-6 col-xl-3">
+                <div class="stat-card">
+                    <div class="stat-icon bg-primary-subtle text-primary">
+                        <i class="bi bi-list-check"></i>
+                    </div>
+                    <div class="stat-body">
+                        <div class="stat-value" th:text="${myItems != null ? myItems.size() : 0}">0</div>
+                        <div class="stat-label">Přiřazené úkoly</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-xl-3">
+                <div class="stat-card">
+                    <div class="stat-icon bg-success-subtle text-success">
+                        <i class="bi bi-folder2-open"></i>
+                    </div>
+                    <div class="stat-body">
+                        <div class="stat-value" th:text="${projects != null ? projects.size() : 0}">0</div>
+                        <div class="stat-label">Aktivní projekty</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4">
+
+            <!-- PŘIŘAZENÉ ÚKOLY -->
+            <div class="col-lg-7">
+                <div class="card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-person-check me-2 text-primary"></i>Mé úkoly
+                        </h5>
+                        <span class="badge bg-primary" th:text="${myItems != null ? myItems.size() : 0}">0</span>
+                    </div>
+                    <div class="card-body p-0">
+                        <div th:if="${myItems == null or myItems.empty}" class="text-center py-5 text-muted">
+                            <i class="bi bi-check2-all fs-2 d-block mb-2"></i>
+                            Žádné přiřazené úkoly. Skvělá práce!
+                        </div>
+                        <div th:if="${myItems != null and !myItems.empty}" class="work-item-list">
+                            <a th:each="item : ${myItems}"
+                               th:href="@{/items/{id}(id=${item.id})}"
+                               class="work-item-row">
+                                <span th:class="'wi-type-badge ' + ${item.type.cssClass}">
+                                    <i th:class="'bi ' + ${item.type.iconClass}"></i>
+                                </span>
+                                <div class="work-item-info">
+                                    <div class="work-item-key text-muted small" th:text="${item.itemKey}">PROJ-1</div>
+                                    <div class="work-item-title" th:text="${item.title}">Název úkolu</div>
+                                </div>
+                                <div class="work-item-meta ms-auto d-flex align-items-center gap-2">
+                                    <span th:class="'badge ' + ${item.priority.cssClass}" th:text="${item.priority.displayName}">Priorita</span>
+                                    <span th:class="'badge status-badge ' + ${item.status.cssClass}" th:text="${item.status.displayName}">Stav</span>
+                                    <span th:if="${item.dueDate != null}"
+                                          class="text-muted small"
+                                          th:text="${#temporals.format(item.dueDate, 'd.M.yyyy')}">1.1.2025</span>
+                                </div>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PROJEKTY -->
+            <div class="col-lg-5">
+                <div class="card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-folder2 me-2 text-primary"></i>Mé projekty
+                        </h5>
+                        <a th:href="@{/projects}" class="btn btn-sm btn-outline-primary">Zobrazit vše</a>
+                    </div>
+                    <div class="card-body p-0">
+                        <div th:if="${projects == null or projects.empty}" class="text-center py-5 text-muted">
+                            <i class="bi bi-folder-plus fs-2 d-block mb-2"></i>
+                            Zatím žádné projekty.
+                            <a th:href="@{/projects/new}" class="d-block mt-2">Vytvořte první projekt</a>
+                        </div>
+                        <div th:if="${projects != null and !projects.empty}" class="project-list">
+                            <a th:each="proj : ${projects}"
+                               th:href="@{/projects/{id}(id=${proj.id})}"
+                               class="project-row">
+                                <div class="project-icon"
+                                     th:style="${'background: ' + (proj.color ?: '#6DA3C7')}">
+                                    <span th:text="${proj.projectKey.substring(0,1)}">P</span>
+                                </div>
+                                <div class="project-info">
+                                    <div class="project-name" th:text="${proj.name}">Název projektu</div>
+                                    <div class="project-key text-muted small" th:text="${proj.projectKey}">KEY</div>
+                                </div>
+                                <span th:class="'badge ms-auto ' + ${proj.status.cssClass}"
+                                      th:text="${proj.status.displayName}">Aktivní</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="cs"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<body>
+<div layout:fragment="content">
+    <div class="page-header">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div class="d-flex align-items-center gap-3">
+                <div class="project-card-icon" style="width:48px;height:48px;font-size:22px;"
+                     th:style="${'width:48px;height:48px;font-size:22px;background:' + (project.color ?: '#6DA3C7')}">
+                    <span th:text="${project.projectKey.substring(0,1)}">P</span>
+                </div>
+                <div>
+                    <div class="d-flex align-items-center gap-2">
+                        <h1 class="h4 mb-0" th:text="${project.name}">Projekt</h1>
+                        <span th:class="'badge ' + ${project.status.cssClass}"
+                              th:text="${project.status.displayName}">Aktivní</span>
+                        <span th:if="${project.parent != null}" class="badge bg-secondary">
+                            <i class="bi bi-diagram-3 me-1"></i>Podprojekt
+                        </span>
+                    </div>
+                    <div class="text-muted small mt-1">
+                        <span th:text="${project.projectKey}" class="font-monospace me-2">KEY</span>
+                        <span th:if="${project.startDate != null}">
+                            <i class="bi bi-calendar2 me-1"></i>
+                            <span th:text="${#temporals.format(project.startDate, 'd.M.yyyy')}">1.1.2025</span>
+                            <span th:if="${project.endDate != null}">
+                                – <span th:text="${#temporals.format(project.endDate, 'd.M.yyyy')}">31.12.2025</span>
+                            </span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+            <div class="d-flex gap-2">
+                <a th:href="@{/projects/{id}/items/new(id=${project.id})}"
+                   class="btn btn-primary btn-sm"
+                   th:if="${currentUserRole != null and currentUserRole.canEditContent()}">
+                    <i class="bi bi-plus-lg me-1"></i>Nová položka
+                </a>
+                <a th:href="@{/projects/{id}/new-subproject(id=${project.id})}"
+                   class="btn btn-outline-secondary btn-sm"
+                   th:if="${currentUserRole != null and currentUserRole.canManageProject()}">
+                    <i class="bi bi-diagram-3 me-1"></i>Přidat podprojekt
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="container-fluid px-3 py-3">
+
+        <!-- Nadřazený projekt (breadcrumb) -->
+        <div th:if="${project.parent != null}" class="alert alert-light d-flex align-items-center gap-2 mb-3">
+            <i class="bi bi-diagram-3"></i>
+            Nadřazený projekt:
+            <a th:href="@{/projects/{id}(id=${project.parent.id})}"
+               th:text="${project.parent.name}">Rodič</a>
+        </div>
+
+        <div class="row g-4">
+
+            <!-- Dokončení projektu -->
+            <div class="col-sm-6 col-xl-3">
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: var(--accent-subtle); color: var(--accent);">
+                        <i class="bi bi-trophy"></i>
+                    </div>
+                    <div class="stat-body">
+                        <div class="stat-value" th:text="${completionPercent + '%'}">0%</div>
+                        <div class="stat-label">Dokončení</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Počty dle stavu -->
+            <div class="col-sm-6 col-xl-3" th:each="entry : ${statusCounts}"
+                 th:if="${entry.key.name() == 'IN_PROGRESS' or entry.key.name() == 'TO_DO'}">
+                <div class="stat-card">
+                    <div class="stat-icon" th:classappend="${entry.key.name() == 'IN_PROGRESS'} ? 'bg-primary-subtle text-primary' : 'bg-secondary-subtle text-secondary'">
+                        <i th:class="${entry.key.name() == 'IN_PROGRESS'} ? 'bi bi-play-circle' : 'bi bi-inbox'"></i>
+                    </div>
+                    <div class="stat-body">
+                        <div class="stat-value" th:text="${entry.value}">0</div>
+                        <div class="stat-label" th:text="${entry.key.displayName}">Stav</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Aktivní sprint -->
+            <div class="col-sm-6 col-xl-3" th:if="${activeSprint != null}">
+                <div class="stat-card">
+                    <div class="stat-icon bg-success-subtle text-success">
+                        <i class="bi bi-lightning"></i>
+                    </div>
+                    <div class="stat-body">
+                        <div class="stat-value small" th:text="${activeSprint.name}">Sprint</div>
+                        <div class="stat-label">Aktivní sprint</div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="row g-4 mt-1">
+
+            <!-- Popis projektu -->
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between">
+                        <h6 class="mb-0">Popis projektu</h6>
+                        <a th:href="@{/projects/{id}/settings(id=${project.id})}"
+                           class="btn btn-sm btn-icon"
+                           th:if="${currentUserRole != null and currentUserRole.canManageProject()}">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                    </div>
+                    <div class="card-body">
+                        <div th:if="${project.description == null or project.description.isBlank()}"
+                             class="text-muted">Bez popisu</div>
+                        <div th:if="${project.description != null and !project.description.isBlank()}"
+                             th:text="${project.description}">Popis</div>
+                    </div>
+                </div>
+
+                <!-- Podprojekty -->
+                <div class="card mt-3" th:if="${!subprojects.empty}">
+                    <div class="card-header d-flex justify-content-between">
+                        <h6 class="mb-0">Podprojekty
+                            <span class="badge bg-secondary ms-2" th:text="${subprojects.size()}">0</span>
+                        </h6>
+                        <a th:href="@{/projects/{id}/new-subproject(id=${project.id})}"
+                           class="btn btn-sm btn-outline-primary"
+                           th:if="${currentUserRole != null and currentUserRole.canManageProject()}">
+                            <i class="bi bi-plus me-1"></i>Přidat
+                        </a>
+                    </div>
+                    <div class="card-body p-0">
+                        <div th:each="sub : ${subprojects}" class="project-row">
+                            <div class="project-icon" style="width:32px;height:32px;font-size:14px;"
+                                 th:style="${'width:32px;height:32px;font-size:14px;background:' + (sub.color ?: '#6DA3C7')}">
+                                <span th:text="${sub.projectKey.substring(0,1)}">P</span>
+                            </div>
+                            <div class="project-info">
+                                <div class="project-name">
+                                    <a th:href="@{/projects/{id}(id=${sub.id})}"
+                                       th:text="${sub.name}">Podprojekt</a>
+                                </div>
+                                <div class="project-key text-muted" th:text="${sub.projectKey}">KEY</div>
+                            </div>
+                            <span th:class="'badge ms-auto ' + ${sub.status.cssClass}"
+                                  th:text="${sub.status.displayName}">Aktivní</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tým projektu -->
+            <div class="col-lg-4">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between">
+                        <h6 class="mb-0">Projektový tým</h6>
+                        <a th:href="@{/projects/{id}/team(id=${project.id})}"
+                           class="btn btn-sm btn-outline-primary">
+                            <span th:text="${members.size()}">0</span> členů
+                        </a>
+                    </div>
+                    <div class="card-body">
+                        <div th:each="member : ${members}" class="d-flex align-items-center gap-2 mb-2">
+                            <div class="user-avatar-sm" th:text="${member.user.initials}">??</div>
+                            <div>
+                                <div class="small fw-medium" th:text="${member.user.fullName}">Jméno</div>
+                                <div class="text-muted" style="font-size:11px"
+                                     th:text="${member.projectRole.displayName}">Role</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+</body>
+</html>

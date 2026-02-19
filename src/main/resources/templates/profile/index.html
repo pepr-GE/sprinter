@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="cs"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<body>
+<div layout:fragment="content">
+    <div class="page-header">
+        <h1 class="h4 mb-0">Můj profil</h1>
+    </div>
+    <div class="container-fluid px-3 py-3">
+        <div class="row g-4">
+
+            <!-- Základní informace -->
+            <div class="col-lg-4">
+                <div class="card text-center">
+                    <div class="card-body py-4">
+                        <div class="user-avatar-lg mb-3" style="
+                            width:80px;height:80px;font-size:28px;border-radius:50%;
+                            background:linear-gradient(135deg,var(--accent),var(--accent-hover));
+                            color:white;font-weight:700;display:flex;align-items:center;
+                            justify-content:center;margin:0 auto;"
+                             th:text="${user.initials}">??</div>
+                        <h5 class="mb-1" th:text="${user.fullName}">Jméno</h5>
+                        <div class="text-muted small" th:text="${'@' + user.username}">@username</div>
+                        <div class="text-muted small" th:text="${user.email}">email</div>
+                        <div class="mt-2">
+                            <span th:class="'badge ' + (${user.systemRole.name() == 'ADMIN'} ? 'bg-danger' : 'bg-secondary')"
+                                  th:text="${user.systemRole.displayName}">Role</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Přepínač tématu -->
+                <div class="card mt-3">
+                    <div class="card-header"><h6 class="mb-0">Vzhled</h6></div>
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="fw-medium">Barevné téma</div>
+                                <div class="text-muted small" th:text="${user.uiTheme == 'dark' ? 'Tmavý motiv' : 'Světlý motiv'}">Světlý motiv</div>
+                            </div>
+                            <form th:action="@{/profile/theme}" method="post">
+                                <input type="hidden" name="returnTo" th:value="${'/profile'}"/>
+                                <input type="hidden" name="theme"
+                                       th:value="${user.uiTheme == 'dark' ? 'light' : 'dark'}"/>
+                                <button type="submit" class="btn btn-sm btn-outline-secondary">
+                                    <i th:class="${'bi ' + (user.uiTheme == 'dark' ? 'bi-sun-fill' : 'bi-moon-fill')}"></i>
+                                    <span th:text="${user.uiTheme == 'dark' ? 'Přepnout na světlý' : 'Přepnout na tmavý'}">Přepnout</span>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Změna hesla -->
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header"><h6 class="mb-0">Změna hesla</h6></div>
+                    <div class="card-body">
+                        <form th:action="@{/profile/password}" method="post">
+                            <div class="mb-3">
+                                <label for="currentPassword" class="form-label">Aktuální heslo</label>
+                                <input type="password" class="form-control" id="currentPassword"
+                                       name="currentPassword" autocomplete="current-password" required/>
+                            </div>
+                            <div class="mb-3">
+                                <label for="newPassword" class="form-label">Nové heslo</label>
+                                <input type="password" class="form-control" id="newPassword"
+                                       name="newPassword" autocomplete="new-password"
+                                       minlength="8" required/>
+                                <div class="form-text">Minimálně 8 znaků</div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="confirmPassword" class="form-label">Potvrdit nové heslo</label>
+                                <input type="password" class="form-control" id="confirmPassword"
+                                       name="confirmPassword" autocomplete="new-password"
+                                       minlength="8" required/>
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-shield-lock me-1"></i>Změnit heslo
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+</body>
+</html>
