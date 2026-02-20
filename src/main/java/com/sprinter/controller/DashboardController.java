@@ -1,6 +1,7 @@
 package com.sprinter.controller;
 
 import com.sprinter.domain.repository.CommentRepository;
+import com.sprinter.domain.repository.DocumentFolderRepository;
 import com.sprinter.domain.repository.DocumentRepository;
 import com.sprinter.domain.repository.WorkItemRepository;
 import com.sprinter.dto.ActivityEntry;
@@ -24,11 +25,12 @@ import java.util.Collections;
 @RequiredArgsConstructor
 public class DashboardController {
 
-    private final ProjectService     projectService;
-    private final WorkItemService    workItemService;
-    private final WorkItemRepository workItemRepository;
-    private final DocumentRepository documentRepository;
-    private final CommentRepository  commentRepository;
+    private final ProjectService            projectService;
+    private final WorkItemService           workItemService;
+    private final WorkItemRepository        workItemRepository;
+    private final DocumentRepository        documentRepository;
+    private final DocumentFolderRepository  folderRepository;
+    private final CommentRepository         commentRepository;
 
     @GetMapping({"/", "/dashboard"})
     public String dashboard(Model model) {
@@ -92,6 +94,20 @@ public class DashboardController {
                         c.getCreatedAt(),
                         c.getAuthor().getFullName(),
                         "bi-chat-left-text",
+                        "wi-type-task"
+                )));
+
+        folderRepository.findRecentInProjects(projectIds, since, pageable)
+                .forEach(f -> entries.add(new ActivityEntry(
+                        "folder",
+                        null,
+                        "Složka: " + f.getName(),
+                        f.getProject() != null
+                                ? "/projects/" + f.getProject().getId() + "/documents"
+                                : "/documents",
+                        f.getCreatedAt(),
+                        f.getCreatedBy().getFullName(),
+                        "bi-folder-plus",
                         "wi-type-task"
                 )));
 

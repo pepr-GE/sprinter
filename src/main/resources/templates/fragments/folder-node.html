@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!--
+  Rekurzivní fragment pro zobrazení složky (a jejích podsložek) v hlavním obsahu.
+  Parametry:
+    folder     – DocumentFolder entity
+    documents  – celý seznam dokumentů (filtrování probíhá uvnitř th:if)
+    returnTo   – URL pro přesměrování po operaci (bez context path)
+    canDelete  – boolean, zda zobrazit tlačítko smazání
+    projectId  – Long nebo null, pro hidden input ve formuláři
+-->
+<th:block th:fragment="folderSection(folder, documents, returnTo, canDelete, projectId)">
+    <div class="folder-section mb-2"
+         th:id="'folder-' + ${folder.id}"
+         ondragover="dragOver(event)"
+         ondragleave="dragLeave(event)"
+         th:attr="data-folder-id=${folder.id},data-return-to=${returnTo}"
+         ondrop="handleDrop(event, parseInt(this.dataset.folderId), this.dataset.returnTo)">
+
+        <div class="folder-header">
+            <i class="bi bi-folder-fill text-warning"></i>
+            <strong th:text="${folder.name}">Složka</strong>
+            <form th:if="${canDelete}"
+                  th:action="@{/documents/folders/{id}/delete(id=${folder.id})}"
+                  method="post" class="ms-auto d-inline"
+                  onsubmit="return confirm('Smazat složku i s obsahem?')">
+                <input th:if="${projectId != null}" type="hidden" name="projectId" th:value="${projectId}"/>
+                <button class="btn btn-sm btn-icon text-danger" type="submit" title="Smazat složku">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </form>
+        </div>
+
+        <div class="folder-docs">
+            <!-- Dokumenty v této složce -->
+            <div th:each="doc : ${documents}"
+                 th:if="${doc.folder != null and doc.folder.id == folder.id}"
+                 class="doc-folder-row"
+                 draggable="true"
+                 th:attr="data-doc-id=${doc.id}"
+                 ondragstart="dragStart(event, parseInt(this.dataset.docId))">
+                <i class="bi bi-file-earmark-text text-muted"></i>
+                <a th:href="@{/documents/{id}(id=${doc.id})}" th:text="${doc.title}" class="ms-1">Dokument</a>
+                <span class="text-muted small ms-auto"
+                      th:text="${#temporals.format(doc.updatedAt ?: doc.createdAt, 'd.M.yyyy')}"></span>
+            </div>
+
+            <!-- Rekurzivní podsložky (s odsazením) -->
+            <div th:each="child : ${folder.children}" class="ps-3">
+                <th:block th:replace="~{fragments/folder-node :: folderSection(${child}, ${documents}, ${returnTo}, ${canDelete}, ${projectId})}"></th:block>
+            </div>
+        </div>
+    </div>
+</th:block>
+
+<!--
+  Rekurzivní fragment pro strom složek (pravý panel – filtr + drag target).
+  Parametry:
+    folder           – DocumentFolder entity
+    baseUrl          – základ URL bez context path, např. "/documents"
+    selectedFolderId – aktuálně vybraná složka (nebo null)
+-->
+<th:block th:fragment="treeNode(folder, baseUrl, selectedFolderId)">
+    <a th:href="@{${baseUrl}(folderId=${folder.id})}"
+       class="folder-tree-item"
+       th:classappend="${selectedFolderId != null and selectedFolderId == folder.id} ? ' active' : ''"
+       ondragover="dragOver(event)"
+       ondragleave="dragLeave(event)"
+       th:attr="data-folder-id=${folder.id},data-base-url=${baseUrl}"
+       ondrop="handleDrop(event, parseInt(this.dataset.folderId), this.dataset.baseUrl)">
+        <i class="bi bi-folder-fill text-warning me-1"></i>
+        <span th:text="${folder.name}">Složka</span>
+    </a>
+    <!-- Rekurzivní podsložky se zachováním CSS odsazení -->
+    <div th:each="child : ${folder.children}" class="folder-tree-sub">
+        <th:block th:replace="~{fragments/folder-node :: treeNode(${child}, ${baseUrl}, ${selectedFolderId})}"></th:block>
+    </div>
+</th:block>
+
+</body>
+</html>

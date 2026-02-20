@@ -34,6 +34,7 @@ public class DocumentController {
     public String listDocuments(@RequestParam(required = false) Long folderId, Model model) {
         model.addAttribute("documents",        documentService.findAll(folderId));
         model.addAttribute("folders",          documentService.findFolders(null));
+        model.addAttribute("foldersFlat",      documentService.findFoldersFlat(null));
         model.addAttribute("selectedFolderId", folderId);
         model.addAttribute("pageTitle",        "Dokumenty");
         model.addAttribute("activeNav",        "documents");
@@ -238,8 +239,9 @@ public class DocumentController {
         var project = projectService.findById(projectId);
         projectService.requireAccess(projectId);
         model.addAttribute("project",         project);
-        model.addAttribute("documents",       documentService.findByProject(projectId, folderId));
-        model.addAttribute("folders",         documentService.findFolders(projectId));
+        model.addAttribute("documents",        documentService.findByProject(projectId, folderId));
+        model.addAttribute("folders",          documentService.findFolders(projectId));
+        model.addAttribute("foldersFlat",      documentService.findFoldersFlat(projectId));
         model.addAttribute("selectedFolderId", folderId);
         model.addAttribute("currentUserRole",
                 projectService.getCurrentUserRole(projectId).orElse(null));

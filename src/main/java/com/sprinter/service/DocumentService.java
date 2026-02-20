@@ -18,9 +18,17 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+
+/** Plochá reprezentace složky pro select dropdown (zahrnuje hloubku v hierarchii). */
+record FolderOption(Long id, String name, int depth) {
+    public String displayName() {
+        return "—".repeat(depth) + (depth > 0 ? " " : "") + name;
+    }
+}
 
 @Service
 @RequiredArgsConstructor
@@ -51,13 +59,43 @@ public class DocumentService {
 
     @Transactional(readOnly = true)
     public List<Document> findAll(Long folderId) {
-        var userId = SecurityUtils.getCurrentUserId().orElseThrow();
-        var projectIds = projectRepository.findProjectsForUser(userId)
-                .stream().map(p -> p.getId()).toList();
+        var projectIds = resolveAccessibleProjectIds(null);
         if (folderId != null) {
-            return documentRepository.findByFolderAndProjects(folderId, projectIds);
+            return projectIds.isEmpty()
+                    ? List.of()
+                    : documentRepository.findByFolderAndProjects(folderId, projectIds);
         }
-        return documentRepository.findAllForProjects(projectIds);
+        return projectIds.isEmpty()
+                ? documentRepository.findByProjectIsNullOrderByUpdatedAtDescCreatedAtDesc()
+                : documentRepository.findAllForProjects(projectIds);
+    }
+
+    /**
+     * Vrátí všechny dokumenty přístupné aktuálnímu uživateli v kontextu dané pracovní položky.
+     * Zahrnuje dokumenty z projektů, jichž je uživatel členem, + dokumenty z explicitně
+     * předaného projektu (pokud user nemá přímé členství, ale má přístup přes dědičnost/admin).
+     */
+    @Transactional(readOnly = true)
+    public List<Document> findAllAccessible(Long contextProjectId) {
+        var projectIds = resolveAccessibleProjectIds(contextProjectId);
+        return projectIds.isEmpty()
+                ? documentRepository.findByProjectIsNullOrderByUpdatedAtDescCreatedAtDesc()
+                : documentRepository.findAllForProjects(projectIds);
+    }
+
+    /** Sestaví seznam ID projektů přístupných aktuálnímu uživateli. */
+    private List<Long> resolveAccessibleProjectIds(Long extraProjectId) {
+        if (SecurityUtils.isCurrentUserAdmin()) {
+            return projectRepository.findAll().stream().map(p -> p.getId()).toList();
+        }
+        var userId = SecurityUtils.getCurrentUserId().orElseThrow();
+        var ids = new ArrayList<>(
+                projectRepository.findProjectsForUser(userId)
+                        .stream().map(p -> p.getId()).toList());
+        if (extraProjectId != null && !ids.contains(extraProjectId)) {
+            ids.add(extraProjectId);
+        }
+        return ids;
     }
 
     @Transactional(readOnly = true)
@@ -196,6 +234,27 @@ public class DocumentService {
         return projectId != null
                 ? folderRepository.findByProjectIdAndParentIsNullOrderByNameAsc(projectId)
                 : folderRepository.findByProjectIsNullAndParentIsNullOrderByNameAsc();
+    }
+
+    /**
+     * Vrátí všechny přístupné složky jako plochou strukturu s hloubkou (pro select dropdown).
+     * Pořadí je depth-first: kořenová složka, pak její podsložky (rekurzivně), pak další kořenová...
+     */
+    @Transactional(readOnly = true)
+    public List<FolderOption> findFoldersFlat(Long projectId) {
+        var result = new ArrayList<FolderOption>();
+        folderRepository.findByProjectIsNullAndParentIsNullOrderByNameAsc()
+                .forEach(f -> flattenFolder(f, 0, result));
+        if (projectId != null) {
+            folderRepository.findByProjectIdAndParentIsNullOrderByNameAsc(projectId)
+                    .forEach(f -> flattenFolder(f, 0, result));
+        }
+        return result;
+    }
+
+    private void flattenFolder(DocumentFolder folder, int depth, List<FolderOption> result) {
+        result.add(new FolderOption(folder.getId(), folder.getName(), depth));
+        folder.getChildren().forEach(child -> flattenFolder(child, depth + 1, result));
     }
 
     /**

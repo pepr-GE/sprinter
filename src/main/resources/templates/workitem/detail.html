@@ -298,12 +298,30 @@
                         </div>
 
                         <!-- Navázané dokumenty -->
-                        <div th:if="${linkedDocuments != null and !linkedDocuments.empty}" class="mt-3">
-                            <h6 class="small text-muted mb-2">NAVÁZANÉ DOKUMENTY</h6>
-                            <div th:each="doc : ${linkedDocuments}" class="d-flex align-items-center gap-2 mb-1">
+                        <div class="mt-3">
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <h6 class="small text-muted mb-0">NAVÁZANÉ DOKUMENTY</h6>
+                                <button th:if="${currentUserRole != null and currentUserRole.canEditContent()}"
+                                        class="btn btn-sm btn-icon ms-auto"
+                                        data-bs-toggle="modal" data-bs-target="#linkDocModal"
+                                        title="Připojit dokument">
+                                    <i class="bi bi-file-earmark-plus"></i>
+                                </button>
+                            </div>
+                            <div th:if="${linkedDocuments == null or linkedDocuments.empty}"
+                                 class="text-muted small">Žádné dokumenty</div>
+                            <div th:each="doc : ${linkedDocuments}" class="d-flex align-items-center gap-1 mb-1">
                                 <i class="bi bi-file-earmark-text text-muted" style="font-size:13px;"></i>
                                 <a th:href="@{/documents/{id}(id=${doc.id})}"
-                                   th:text="${doc.title}" class="small text-truncate">Dokument</a>
+                                   th:text="${doc.title}" class="small text-truncate flex-grow-1">Dokument</a>
+                                <form th:if="${currentUserRole != null and currentUserRole.canEditContent()}"
+                                      th:action="@{/items/{id}/documents/{docId}/unlink(id=${item.id},docId=${doc.id})}"
+                                      method="post" class="d-inline">
+                                    <button type="submit" class="btn btn-sm btn-icon text-danger p-0"
+                                            title="Odpojit dokument">
+                                        <i class="bi bi-x" style="font-size:14px;"></i>
+                                    </button>
+                                </form>
                             </div>
                         </div>
 
@@ -313,6 +331,130 @@
 
         </div>
     </div>
+
+    <!-- Modal: Připojit dokumenty -->
+    <div class="modal fade" id="linkDocModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-file-earmark-plus me-2"></i>Připojit dokument</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-0">
+                    <div class="row g-0" style="min-height: 350px;">
+                        <!-- Levý panel: seznam dokumentů -->
+                        <div class="col-lg-9 border-end d-flex flex-column">
+                            <div class="p-3 border-bottom">
+                                <input type="text" id="detailDocSearch" class="form-control form-control-sm"
+                                       placeholder="Hledat dokumenty podle názvu…"
+                                       oninput="filterDetailDocs()"/>
+                            </div>
+                            <div class="overflow-auto p-3 flex-grow-1" style="max-height: 380px;">
+                                <div id="detailDocList">
+                                    <div th:each="doc : ${allDocuments}"
+                                         class="doc-modal-row d-flex align-items-center gap-2 p-2 rounded mb-1"
+                                         th:attr="data-doc-id=${doc.id},data-folder-id=${doc.folder != null ? doc.folder.id : 0},data-doc-title=${doc.title}"
+                                         style="cursor:pointer;"
+                                         onclick="toggleDetailDoc(parseInt(this.dataset.docId))">
+                                        <input type="checkbox" class="form-check-input flex-shrink-0 mt-0"
+                                               th:id="'detail-doc-' + ${doc.id}"
+                                               th:checked="${linkedDocumentIds != null and linkedDocumentIds.contains(doc.id)}"
+                                               onclick="event.stopPropagation(); updateDetailSelectedInputs();"/>
+                                        <i class="bi bi-file-earmark-text text-muted flex-shrink-0"></i>
+                                        <span class="flex-grow-1 small" th:text="${doc.title}">Dokument</span>
+                                        <span th:if="${doc.folder != null}"
+                                              class="text-muted small badge bg-light text-dark"
+                                              th:text="${doc.folder.name}"></span>
+                                    </div>
+                                    <div id="detailDocEmpty" class="text-muted small text-center py-3" style="display:none;">
+                                        Žádné dokumenty odpovídají filtru
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Pravý panel: filtr složek -->
+                        <div class="col-lg-3">
+                            <div class="p-3">
+                                <h6 class="small text-uppercase text-muted mb-2">Složky</h6>
+                                <div class="folder-tree">
+                                    <a href="#" class="folder-tree-item folder-tree-root active"
+                                       id="detailFolderAll"
+                                       onclick="filterDetailByFolder(null, event)">
+                                        <i class="bi bi-house me-1"></i>Vše
+                                    </a>
+                                    <div th:each="fo : ${allFolders}">
+                                        <a href="#" class="folder-tree-item"
+                                           th:attr="data-folder-id=${fo.id}"
+                                           onclick="filterDetailByFolder(parseInt(this.dataset.folderId), event)"
+                                           th:text="${fo.displayName()}">Složka</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <form th:action="@{/items/{id}/documents/link(id=${item.id})}" method="post" id="detailLinkForm">
+                        <div id="detailSelectedInputs"></div>
+                        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Zavřít</button>
+                        <button type="submit" class="btn btn-primary btn-sm">
+                            <i class="bi bi-check-lg me-1"></i>Přidat vybrané
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // ---- Detail page: document linking modal ----
+    let detailSelectedFolderId = null;
+
+    function filterDetailDocs() {
+        const term = document.getElementById('detailDocSearch').value.toLowerCase();
+        let visible = 0;
+        document.querySelectorAll('#detailDocList .doc-modal-row').forEach(row => {
+            const title  = (row.dataset.docTitle || '').toLowerCase();
+            const folder = row.dataset.folderId || '0';
+            const matchTitle  = title.includes(term);
+            const matchFolder = detailSelectedFolderId === null || folder == detailSelectedFolderId;
+            const show = matchTitle && matchFolder;
+            row.style.display = show ? '' : 'none';
+            if (show) visible++;
+        });
+        document.getElementById('detailDocEmpty').style.display = visible === 0 ? '' : 'none';
+    }
+
+    function filterDetailByFolder(folderId, event) {
+        event.preventDefault();
+        detailSelectedFolderId = folderId;
+        document.querySelectorAll('#linkDocModal .folder-tree-item').forEach(a => a.classList.remove('active'));
+        event.currentTarget.classList.add('active');
+        filterDetailDocs();
+    }
+
+    function toggleDetailDoc(docId) {
+        const cb = document.getElementById('detail-doc-' + docId);
+        if (cb) cb.checked = !cb.checked;
+        updateDetailSelectedInputs();
+    }
+
+    function updateDetailSelectedInputs() {
+        const container = document.getElementById('detailSelectedInputs');
+        container.innerHTML = '';
+        document.querySelectorAll('#detailDocList input[type=checkbox]:checked').forEach(cb => {
+            const docId = cb.closest('.doc-modal-row').dataset.docId;
+            const inp = document.createElement('input');
+            inp.type = 'hidden'; inp.name = 'docIds'; inp.value = docId;
+            container.appendChild(inp);
+        });
+    }
+
+    document.getElementById('detailLinkForm').addEventListener('submit', function() {
+        updateDetailSelectedInputs();
+    });
+    </script>
+
 </div>
 </body>
 </html>

@@ -14,6 +14,9 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 /**
  * Controller pro správu pracovních položek (úkoly, problémy, stories, epicy, články).
  */
@@ -21,12 +24,13 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 @RequiredArgsConstructor
 public class WorkItemController {
 
-    private final WorkItemService  workItemService;
-    private final ProjectService   projectService;
-    private final UserService      userService;
-    private final SprintService    sprintService;
-    private final LabelRepository  labelRepository;
+    private final WorkItemService    workItemService;
+    private final ProjectService     projectService;
+    private final UserService        userService;
+    private final SprintService      sprintService;
+    private final LabelRepository    labelRepository;
     private final DocumentRepository documentRepository;
+    private final DocumentService    documentService;
 
     // ---- Formulář nové položky ----
 
@@ -57,6 +61,7 @@ public class WorkItemController {
     public String createItem(@PathVariable Long projectId,
                              @Valid @ModelAttribute("workItemDto") WorkItemDto dto,
                              BindingResult binding,
+                             @RequestParam(required = false) List<Long> docIds,
                              RedirectAttributes flash, Model model) {
         if (binding.hasErrors()) {
             var project = projectService.findById(projectId);
@@ -71,6 +76,12 @@ public class WorkItemController {
                     dto.getPriority(), dto.getAssigneeId(), dto.getParentId(),
                     dto.getStartDate(), dto.getDueDate(), dto.getStoryPoints(),
                     dto.getSprintId(), dto.getProgressPct(), dto.getLabelIds());
+
+            if (docIds != null) {
+                for (Long docId : docIds) {
+                    try { documentService.linkWorkItem(docId, item.getId()); } catch (Exception ignored) {}
+                }
+            }
 
             flash.addFlashAttribute("successMessage",
                     "Položka " + item.getItemKey() + " byla vytvořena.");
@@ -92,6 +103,9 @@ public class WorkItemController {
         var item = workItemService.findById(id);
         projectService.requireAccess(item.getProject().getId());
 
+        var linkedDocuments = documentRepository.findByLinkedWorkItemId(id);
+        var linkedDocumentIds = linkedDocuments.stream().map(d -> d.getId()).collect(Collectors.toSet());
+
         model.addAttribute("item",              item);
         model.addAttribute("project",           item.getProject());
         model.addAttribute("currentUserRole",
@@ -101,7 +115,10 @@ public class WorkItemController {
         model.addAttribute("statuses",          WorkItemStatus.values());
         model.addAttribute("priorities",        Priority.values());
         model.addAttribute("projectMembers",    userService.findProjectMembers(item.getProject().getId()));
-        model.addAttribute("linkedDocuments",   documentRepository.findByLinkedWorkItemId(id));
+        model.addAttribute("linkedDocuments",   linkedDocuments);
+        model.addAttribute("linkedDocumentIds", linkedDocumentIds);
+        model.addAttribute("allDocuments",      documentService.findAllAccessible(item.getProject().getId()));
+        model.addAttribute("allFolders",        documentService.findFoldersFlat(item.getProject().getId()));
         model.addAttribute("pageTitle",         item.getItemKey() + " – " + item.getTitle());
         return "workitem/detail";
     }
@@ -139,11 +156,14 @@ public class WorkItemController {
         dto.setProgressPct(item.getProgressPct() != null ? item.getProgressPct() : 0);
         item.getLabels().forEach(l -> dto.getLabelIds().add(l.getId()));
 
+        var linkedDocs = documentRepository.findByLinkedWorkItemId(id);
         addFormAttributes(model, projectId, item.getProject().getProjectKey());
-        model.addAttribute("workItemDto", dto);
-        model.addAttribute("item",        item);
-        model.addAttribute("project",     item.getProject());
-        model.addAttribute("pageTitle",   "Editace " + item.getItemKey());
+        model.addAttribute("workItemDto",       dto);
+        model.addAttribute("item",              item);
+        model.addAttribute("project",           item.getProject());
+        model.addAttribute("linkedDocuments",   linkedDocs);
+        model.addAttribute("linkedDocumentIds", linkedDocs.stream().map(d -> d.getId()).collect(Collectors.toSet()));
+        model.addAttribute("pageTitle",         "Editace " + item.getItemKey());
         return "workitem/form";
     }
 
@@ -151,13 +171,17 @@ public class WorkItemController {
     public String updateItem(@PathVariable Long id,
                              @Valid @ModelAttribute("workItemDto") WorkItemDto dto,
                              BindingResult binding,
+                             @RequestParam(required = false) List<Long> docIds,
                              RedirectAttributes flash, Model model) {
         var item = workItemService.findById(id);
 
         if (binding.hasErrors()) {
+            var linkedDocs = documentRepository.findByLinkedWorkItemId(id);
             addFormAttributes(model, item.getProject().getId(), item.getProject().getProjectKey());
-            model.addAttribute("item",    item);
-            model.addAttribute("project", item.getProject());
+            model.addAttribute("item",              item);
+            model.addAttribute("project",           item.getProject());
+            model.addAttribute("linkedDocuments",   linkedDocs);
+            model.addAttribute("linkedDocumentIds", linkedDocs.stream().map(d -> d.getId()).collect(Collectors.toSet()));
             return "workitem/form";
         }
 
@@ -166,6 +190,16 @@ public class WorkItemController {
                     dto.getPriority(), dto.getAssigneeId(), dto.getStartDate(),
                     dto.getDueDate(), dto.getStoryPoints(), dto.getEstimatedHours(),
                     dto.getSprintId(), dto.getProgressPct(), dto.getLabelIds());
+
+            // Sync linked documents
+            var currentLinkedIds = documentRepository.findByLinkedWorkItemId(id)
+                    .stream().map(d -> d.getId()).collect(Collectors.toSet());
+            var newIds = docIds != null ? new java.util.HashSet<>(docIds) : new java.util.HashSet<Long>();
+            currentLinkedIds.stream().filter(cid -> !newIds.contains(cid))
+                    .forEach(cid -> { try { documentService.unlinkWorkItem(cid, id); } catch (Exception ignored) {} });
+            newIds.stream().filter(nid -> !currentLinkedIds.contains(nid))
+                    .forEach(nid -> { try { documentService.linkWorkItem(nid, id); } catch (Exception ignored) {} });
+
             flash.addFlashAttribute("successMessage", "Položka byla aktualizována.");
         } catch (Exception e) {
             flash.addFlashAttribute("errorMessage", e.getMessage());
@@ -264,6 +298,33 @@ public class WorkItemController {
         return "redirect:/projects/" + projectId + "/backlog";
     }
 
+    // ---- Připojení dokumentů (z detailu položky) ----
+
+    @PostMapping("/items/{id}/documents/link")
+    public String linkDocuments(@PathVariable Long id,
+                                @RequestParam(required = false) List<Long> docIds,
+                                RedirectAttributes flash) {
+        if (docIds != null) {
+            for (Long docId : docIds) {
+                try { documentService.linkWorkItem(docId, id); } catch (Exception ignored) {}
+            }
+            flash.addFlashAttribute("successMessage", "Dokumenty byly připojeny.");
+        }
+        return "redirect:/items/" + id;
+    }
+
+    @PostMapping("/items/{id}/documents/{docId}/unlink")
+    public String unlinkDocument(@PathVariable Long id,
+                                 @PathVariable Long docId,
+                                 RedirectAttributes flash) {
+        try {
+            documentService.unlinkWorkItem(docId, id);
+        } catch (Exception e) {
+            flash.addFlashAttribute("errorMessage", e.getMessage());
+        }
+        return "redirect:/items/" + id;
+    }
+
     // ---- Pomocné metody ----
 
     private void addFormAttributes(Model model, Long projectId, String projectKey) {
@@ -272,5 +333,7 @@ public class WorkItemController {
         model.addAttribute("projectMembers", userService.findProjectMembers(projectId));
         model.addAttribute("labels",         labelRepository.findByProjectIdOrProjectIsNullOrderByNameAsc(projectId));
         model.addAttribute("sprints",        sprintService.findByProject(projectId));
+        model.addAttribute("allDocuments",   documentService.findAllAccessible(projectId));
+        model.addAttribute("allFolders",     documentService.findFoldersFlat(projectId));
     }
 }

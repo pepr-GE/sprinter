@@ -110,7 +110,7 @@
                     <div class="card-body py-3">
                         <div class="text-muted small mb-1"><i class="bi bi-check-circle me-1"></i>Dokončeno</div>
                         <div class="fw-semibold text-success"
-                             th:text="${boardItems.stream().filter(i -> i.status.name() == 'DONE').count()}">0</div>
+                             th:text="${doneCount}">0</div>
                     </div>
                 </div>
             </div>
@@ -121,7 +121,7 @@
                     <div class="card-body py-3">
                         <div class="text-muted small mb-1"><i class="bi bi-diamond me-1"></i>Story body</div>
                         <div class="fw-semibold"
-                             th:text="${boardItems.stream().filter(i -> i.storyPoints != null).mapToInt(i -> i.storyPoints).sum() + ' / ' + boardItems.stream().mapToInt(i -> i.storyPoints != null ? i.storyPoints : 0).sum()}">0</div>
+                             th:text="${donePoints + ' / ' + totalPoints}">0</div>
                     </div>
                 </div>
             </div>
@@ -131,8 +131,8 @@
         <div class="mb-4" th:if="${boardItems.size() > 0}">
             <div th:with="
                 total=${boardItems.size()},
-                done=${boardItems.stream().filter(i -> i.status.name() == 'DONE').count()},
-                pct=${boardItems.size() > 0 ? (boardItems.stream().filter(i -> i.status.name() == 'DONE').count() * 100 / boardItems.size()) : 0}">
+                done=${doneCount},
+                pct=${boardItems.size() > 0 ? (doneCount * 100 / boardItems.size()) : 0}">
                 <div class="d-flex justify-content-between small text-muted mb-1">
                     <span>Postup sprintu</span>
                     <span th:text="${done} + ' / ' + ${total} + ' dokončeno (' + ${pct} + ' %)'">0 / 0</span>

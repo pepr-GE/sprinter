@@ -1,5 +1,6 @@
 package com.sprinter.controller;
 
+import com.sprinter.domain.enums.WorkItemStatus;
 import com.sprinter.dto.SprintDto;
 import com.sprinter.service.ProjectService;
 import com.sprinter.service.SprintService;
@@ -66,9 +67,18 @@ public class SprintController {
         var project = sprint.getProject();
         projectService.requireAccess(project.getId());
 
+        var boardItems = workItemService.findBySprint(id);
+        long doneCount   = boardItems.stream().filter(i -> i.getStatus() == WorkItemStatus.DONE).count();
+        int  totalPoints = boardItems.stream().mapToInt(i -> i.getStoryPoints() != null ? i.getStoryPoints() : 0).sum();
+        int  donePoints  = boardItems.stream().filter(i -> i.getStatus() == WorkItemStatus.DONE)
+                                     .mapToInt(i -> i.getStoryPoints() != null ? i.getStoryPoints() : 0).sum();
+
         model.addAttribute("sprint",          sprint);
         model.addAttribute("project",         project);
-        model.addAttribute("boardItems",      workItemService.findBySprint(id));
+        model.addAttribute("boardItems",      boardItems);
+        model.addAttribute("doneCount",       doneCount);
+        model.addAttribute("totalPoints",     totalPoints);
+        model.addAttribute("donePoints",      donePoints);
         model.addAttribute("allSprints",      sprintService.findByProject(project.getId()));
         model.addAttribute("currentUserRole", projectService.getCurrentUserRole(project.getId()).orElse(null));
         model.addAttribute("pageTitle",       sprint.getName());
