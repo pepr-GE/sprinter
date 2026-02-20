@@ -33,7 +33,27 @@
                     </div>
                 </div>
             </div>
-            <div class="d-flex gap-2">
+            <div class="d-flex gap-2 align-items-center">
+                <!-- Oblíbené: přidat/odebrat -->
+                <form th:if="${!isFavorite}" th:action="@{/favorites/add}" method="post">
+                    <input type="hidden" name="entityType" value="project"/>
+                    <input type="hidden" name="entityId" th:value="${project.id}"/>
+                    <input type="hidden" name="title" th:value="${project.name}"/>
+                    <input type="hidden" name="url" th:value="${'/projects/' + project.id}"/>
+                    <input type="hidden" name="icon" value="bi-folder2"/>
+                    <input type="hidden" name="returnTo" th:value="${'/projects/' + project.id}"/>
+                    <button type="submit" class="btn btn-sm btn-outline-secondary" title="Přidat do oblíbených">
+                        <i class="bi bi-star"></i>
+                    </button>
+                </form>
+                <form th:if="${isFavorite}" th:action="@{/favorites/remove}" method="post">
+                    <input type="hidden" name="entityType" value="project"/>
+                    <input type="hidden" name="entityId" th:value="${project.id}"/>
+                    <input type="hidden" name="returnTo" th:value="${'/projects/' + project.id}"/>
+                    <button type="submit" class="btn btn-sm btn-warning" title="Odebrat z oblíbených">
+                        <i class="bi bi-star-fill"></i>
+                    </button>
+                </form>
                 <a th:href="@{/projects/{id}/items/new(id=${project.id})}"
                    class="btn btn-primary btn-sm"
                    th:if="${currentUserRole != null and currentUserRole.canEditContent()}">
@@ -62,7 +82,7 @@
 
             <!-- Dokončení projektu -->
             <div class="col-sm-6 col-xl-3">
-                <div class="stat-card">
+                <a th:href="@{/projects/{id}/backlog(id=${project.id})}" class="stat-card text-decoration-none">
                     <div class="stat-icon" style="background: var(--accent-subtle); color: var(--accent);">
                         <i class="bi bi-trophy"></i>
                     </div>
@@ -70,13 +90,14 @@
                         <div class="stat-value" th:text="${completionPercent + '%'}">0%</div>
                         <div class="stat-label">Dokončení</div>
                     </div>
-                </div>
+                </a>
             </div>
 
             <!-- Počty dle stavu -->
             <div class="col-sm-6 col-xl-3" th:each="entry : ${statusCounts}"
                  th:if="${entry.key.name() == 'IN_PROGRESS' or entry.key.name() == 'TO_DO'}">
-                <div class="stat-card">
+                <a th:href="${entry.key.name() == 'IN_PROGRESS'} ? @{/projects/{id}/board(id=${project.id})} : @{/projects/{id}/backlog(id=${project.id})}"
+                   class="stat-card text-decoration-none">
                     <div class="stat-icon" th:classappend="${entry.key.name() == 'IN_PROGRESS'} ? 'bg-primary-subtle text-primary' : 'bg-secondary-subtle text-secondary'">
                         <i th:class="${entry.key.name() == 'IN_PROGRESS'} ? 'bi bi-play-circle' : 'bi bi-inbox'"></i>
                     </div>
@@ -84,12 +105,12 @@
                         <div class="stat-value" th:text="${entry.value}">0</div>
                         <div class="stat-label" th:text="${entry.key.displayName}">Stav</div>
                     </div>
-                </div>
+                </a>
             </div>
 
             <!-- Aktivní sprint -->
             <div class="col-sm-6 col-xl-3" th:if="${activeSprint != null}">
-                <div class="stat-card">
+                <a th:href="@{/projects/{id}/board(id=${project.id})}" class="stat-card text-decoration-none">
                     <div class="stat-icon bg-success-subtle text-success">
                         <i class="bi bi-lightning"></i>
                     </div>
@@ -97,7 +118,7 @@
                         <div class="stat-value small" th:text="${activeSprint.name}">Sprint</div>
                         <div class="stat-label">Aktivní sprint</div>
                     </div>
-                </div>
+                </a>
             </div>
 
         </div>

@@ -104,8 +104,40 @@
                         <span th:if="${item.storyPoints != null}"
                               class="badge bg-secondary-subtle text-secondary"
                               th:text="${item.storyPoints + ' SP'}">5 SP</span>
-                        <span th:class="'badge status-badge ' + ${item.status.cssClass}"
-                              th:text="${item.status.displayName}">Stav</span>
+                        <!-- Inline procento dokončení -->
+                        <form th:action="@{/items/{id}/progress(id=${item.id})}" method="post" class="d-inline">
+                            <input type="hidden" name="returnTo" th:value="${'/projects/' + project.id + '/backlog'}"/>
+                            <input type="number" min="0" max="100" name="progressPct"
+                                   th:value="${item.progressPct ?: 0}"
+                                   class="form-control form-control-sm backlog-progress-input"
+                                   title="Procento dokončení"
+                                   onchange="this.form.submit()"/>
+                        </form>
+                        <!-- Inline změna stavu -->
+                        <form th:action="@{/items/{id}/status(id=${item.id})}" method="post" class="d-inline">
+                            <input type="hidden" name="returnTo" th:value="${'/projects/' + project.id + '/backlog'}"/>
+                            <select name="status" class="form-select form-select-sm backlog-status-select"
+                                    onchange="this.form.submit()"
+                                    th:title="'Stav: ' + ${item.status.displayName}">
+                                <option th:each="s : ${statuses}"
+                                        th:value="${s.name()}"
+                                        th:text="${s.displayName}"
+                                        th:selected="${item.status == s}">Stav</option>
+                            </select>
+                        </form>
+                        <!-- Přesun do sprintu / backlogu -->
+                        <form th:action="@{/items/{id}/sprint(id=${item.id})}" method="post" class="d-inline">
+                            <input type="hidden" name="returnTo" th:value="${'/projects/' + project.id + '/backlog'}"/>
+                            <select name="sprintId" class="form-select form-select-sm backlog-sprint-select"
+                                    onchange="this.form.submit()">
+                                <option value="">Backlog</option>
+                                <option th:each="s : ${sprints}"
+                                        th:if="${!s.terminal}"
+                                        th:value="${s.id}"
+                                        th:text="${s.name}"
+                                        th:selected="${item.sprint != null and item.sprint.id == s.id}">Sprint</option>
+                            </select>
+                        </form>
                         <div th:if="${item.assignee != null}" class="user-avatar-xs"
                              th:text="${item.assignee.initials}"
                              th:title="${item.assignee.fullName}">??</div>
@@ -151,6 +183,39 @@
                         <span th:if="${item.storyPoints != null}"
                               class="badge bg-secondary-subtle text-secondary"
                               th:text="${item.storyPoints + ' SP'}">5 SP</span>
+                        <!-- Inline procento dokončení -->
+                        <form th:action="@{/items/{id}/progress(id=${item.id})}" method="post" class="d-inline">
+                            <input type="hidden" name="returnTo" th:value="${'/projects/' + project.id + '/backlog'}"/>
+                            <input type="number" min="0" max="100" name="progressPct"
+                                   th:value="${item.progressPct ?: 0}"
+                                   class="form-control form-control-sm backlog-progress-input"
+                                   title="Procento dokončení"
+                                   onchange="this.form.submit()"/>
+                        </form>
+                        <!-- Inline změna stavu -->
+                        <form th:action="@{/items/{id}/status(id=${item.id})}" method="post" class="d-inline">
+                            <input type="hidden" name="returnTo" th:value="${'/projects/' + project.id + '/backlog'}"/>
+                            <select name="status" class="form-select form-select-sm backlog-status-select"
+                                    onchange="this.form.submit()">
+                                <option th:each="s : ${statuses}"
+                                        th:value="${s.name()}"
+                                        th:text="${s.displayName}"
+                                        th:selected="${item.status == s}">Stav</option>
+                            </select>
+                        </form>
+                        <!-- Přiřazení do sprintu -->
+                        <form th:action="@{/items/{id}/sprint(id=${item.id})}" method="post" class="d-inline">
+                            <input type="hidden" name="returnTo" th:value="${'/projects/' + project.id + '/backlog'}"/>
+                            <select name="sprintId" class="form-select form-select-sm backlog-sprint-select"
+                                    onchange="this.form.submit()">
+                                <option value="">Backlog</option>
+                                <option th:each="s : ${sprints}"
+                                        th:if="${!s.terminal}"
+                                        th:value="${s.id}"
+                                        th:text="${s.name}"
+                                        th:selected="${false}">Sprint</option>
+                            </select>
+                        </form>
                         <div th:if="${item.assignee != null}" class="user-avatar-xs"
                              th:text="${item.assignee.initials}"
                              th:title="${item.assignee.fullName}">??</div>

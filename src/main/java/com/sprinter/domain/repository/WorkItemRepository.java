@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -151,4 +152,46 @@ public interface WorkItemRepository extends JpaRepository<WorkItem, Long> {
      * Vrátí články (ARTICLE typ) projektu.
      */
     List<WorkItem> findByProjectIdAndTypeOrderByUpdatedAtDesc(Long projectId, WorkItemType type);
+
+    /**
+     * Vrátí nedávno upravené položky v projektech (pro activity feed na dashboardu).
+     */
+    @Query("""
+           SELECT wi FROM WorkItem wi
+           WHERE wi.project.id IN :projectIds
+             AND wi.type IN ('TASK','ISSUE','STORY','EPIC')
+             AND COALESCE(wi.updatedAt, wi.createdAt) >= :since
+           ORDER BY COALESCE(wi.updatedAt, wi.createdAt) DESC
+           """)
+    List<WorkItem> findRecentlyUpdatedInProjects(
+            @Param("projectIds") List<Long>       projectIds,
+            @Param("since")      LocalDateTime    since,
+            Pageable             pageable);
+
+    /**
+     * Vrátí nedávno upravené nebo vytvořené položky daným uživatelem (sidebar – nedávné).
+     */
+    @Query("""
+           SELECT wi FROM WorkItem wi
+           WHERE (wi.assignee.id = :userId OR wi.reporter.id = :userId)
+             AND wi.type IN ('TASK','ISSUE','STORY','EPIC')
+           ORDER BY COALESCE(wi.updatedAt, wi.createdAt) DESC
+           """)
+    List<WorkItem> findRecentForUser(@Param("userId") Long userId, Pageable pageable);
+
+    /**
+     * Fulltextové vyhledávání položek v projektech dostupných uživateli.
+     * itemKey je computed, proto hledáme jen v title.
+     */
+    @Query("""
+           SELECT wi FROM WorkItem wi
+           WHERE wi.project.id IN :projectIds
+             AND wi.type IN ('TASK','ISSUE')
+             AND LOWER(wi.title) LIKE LOWER(CONCAT('%', :term, '%'))
+           ORDER BY wi.updatedAt DESC NULLS LAST
+           """)
+    List<WorkItem> searchInProjects(
+            @Param("projectIds") List<Long> projectIds,
+            @Param("term")       String     term,
+            Pageable             pageable);
 }

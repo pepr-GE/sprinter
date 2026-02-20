@@ -15,7 +15,7 @@
 [data-bs-theme="light"] {
     /* Akcentová barva: holubí modrá */
     --accent:              #6DA3C7;
-    --accent-hover:        #5a91b5;
+    --accent-hover:        #4a7fa3;
     --accent-subtle:       #e8f2f9;
     --accent-rgb:          109, 163, 199;
 
@@ -23,14 +23,16 @@
     --bg-primary:          #f4f5f7;
     --bg-surface:          #ffffff;
     --bg-surface-2:        #f8f9fa;
-    --bg-sidebar:          #1e2533;
+    --bg-sidebar:          #eef1f5;
     --bg-navbar:           #ffffff;
 
     /* Text */
     --text-primary:        #172b4d;
     --text-secondary:      #6b778c;
-    --text-sidebar:        #b9c2d3;
-    --text-sidebar-active: #ffffff;
+    --text-sidebar:        #344563;
+    --text-sidebar-active: #172b4d;
+    --sidebar-hover-bg:    rgba(0, 0, 0, 0.06);
+    --sidebar-border:      #dde1e8;
 
     /* Hranice */
     --border-color:        #dfe1e6;
@@ -71,6 +73,8 @@
     --text-secondary:      #8b949e;
     --text-sidebar:        #8b949e;
     --text-sidebar-active: #e6edf3;
+    --sidebar-hover-bg:    rgba(255, 255, 255, 0.10);
+    --sidebar-border:      #21262d;
 
     /* Hranice */
     --border-color:        #30363d;
@@ -159,6 +163,29 @@ a:hover {
     box-shadow: 0 2px 6px rgba(var(--accent-rgb), 0.4);
 }
 
+/* Hlavní navigační odkazy v topbaru (Dashboard, Projekty) */
+.topbar-nav-link {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary) !important;
+    text-decoration: none;
+    transition: var(--transition);
+    white-space: nowrap;
+}
+.topbar-nav-link:hover {
+    background: var(--accent-subtle);
+    color: var(--accent) !important;
+}
+.topbar-nav-link.active {
+    background: var(--accent-subtle);
+    color: var(--accent) !important;
+    font-weight: 600;
+}
+
 /* Vyhledávací pole v topbaru */
 .sprinter-search .input-group-text {
     background: var(--bg-surface-2);
@@ -177,6 +204,52 @@ a:hover {
     box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.15);
 }
 
+/* Vyhledávací dropdown */
+.search-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: var(--shadow-md);
+    z-index: 1050;
+    max-height: 360px;
+    overflow-y: auto;
+}
+.search-dropdown-section {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-secondary);
+    padding: 8px 12px 4px;
+}
+.search-dropdown-item {
+    display: flex;
+    align-items: center;
+    padding: 7px 12px;
+    color: var(--text-primary);
+    text-decoration: none;
+    font-size: 13.5px;
+    gap: 6px;
+    transition: background 0.1s;
+}
+.search-dropdown-item:hover {
+    background: var(--accent-subtle);
+    color: var(--text-primary);
+}
+.search-dropdown-item small {
+    white-space: nowrap;
+}
+.search-dropdown-empty {
+    padding: 12px;
+    color: var(--text-secondary);
+    font-size: 13.5px;
+    text-align: center;
+}
+
 /* Hlavní layout (sidebar + content) */
 .sprinter-layout {
     display: flex;
@@ -189,6 +262,7 @@ a:hover {
     width: 220px;
     min-width: 220px;
     background-color: var(--bg-sidebar);
+    border-right: 1px solid var(--sidebar-border, var(--border-color));
     height: calc(100vh - 56px);
     position: sticky;
     top: 56px;
@@ -236,11 +310,11 @@ a:hover {
     flex-shrink: 0;
 }
 .sidebar-link:hover {
-    background: rgba(255,255,255,0.06);
+    background: var(--sidebar-hover-bg, rgba(255,255,255,0.10));
     color: var(--text-sidebar-active);
 }
 .sidebar-link.active {
-    background: rgba(var(--accent-rgb), 0.15);
+    background: rgba(var(--accent-rgb), 0.20);
     color: var(--accent);
     font-weight: 500;
 }
@@ -250,9 +324,9 @@ a:hover {
     left: 0;
     top: 0;
     bottom: 0;
-    width: 3px;
+    width: 4px;
     background: var(--accent);
-    border-radius: 0 2px 2px 0;
+    border-radius: 0 3px 3px 0;
 }
 .sidebar-link-sub {
     padding-left: 32px;
@@ -572,6 +646,28 @@ a:hover {
 }
 .backlog-title:hover { color: var(--accent); }
 .backlog-meta { flex-shrink: 0; }
+
+/* Inline selects na řádcích backlogu */
+.backlog-status-select,
+.backlog-sprint-select {
+    font-size: 12px;
+    padding: 2px 6px;
+    height: 26px;
+    min-width: 90px;
+    max-width: 130px;
+    border-color: var(--border-color);
+    background-color: var(--bg-surface-2);
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+.backlog-sprint-select { min-width: 110px; max-width: 150px; }
+.backlog-progress-input {
+    font-size: 12px;
+    padding: 2px 4px;
+    width: 56px;
+    text-align: center;
+    border-radius: 4px;
+}
 .backlog-empty {
     padding: 20px 16px;
     text-align: center;
@@ -593,7 +689,10 @@ a:hover {
     box-shadow: var(--shadow-card);
     transition: var(--transition);
 }
-.stat-card:hover { box-shadow: var(--shadow-md); }
+.stat-card:hover {
+    box-shadow: var(--shadow-md);
+    border-color: var(--accent);
+}
 .stat-icon {
     width: 48px;
     height: 48px;
@@ -662,6 +761,28 @@ a:hover {
 .project-key { font-family: monospace; font-size: 11px; }
 
 /* Projekt karty na stránce projektů */
+/* Karty dokumentů */
+.doc-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    box-shadow: var(--shadow-card);
+    transition: var(--transition);
+    position: relative;
+    overflow: hidden;
+}
+.doc-card:hover {
+    box-shadow: 0 6px 16px rgba(9,30,66,0.15);
+    border-color: var(--accent);
+}
+.doc-title {
+    color: var(--text-primary);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
 .project-card {
     background: var(--bg-surface);
     border: 1px solid var(--border-color);
@@ -671,7 +792,10 @@ a:hover {
     transition: var(--transition);
     position: relative;
 }
-.project-card:hover { box-shadow: var(--shadow-md); }
+.project-card:hover {
+    box-shadow: 0 6px 16px rgba(9,30,66,0.20);
+    border-color: var(--accent);
+}
 .project-card-header { padding: 16px 20px 0; }
 .project-card-icon {
     width: 40px;
@@ -934,3 +1058,183 @@ a:hover {
    ============================================================ */
 
 .sprint-status-badge { border-radius: 12px; padding: 2px 10px; font-size: 11px; }
+
+/* ============================================================
+   SIDEBAR – NEDÁVNO ZOBRAZENÉ
+   ============================================================ */
+
+.sidebar-link-recent {
+    font-size: 12px;
+    padding: 4px 12px;
+    gap: 6px;
+}
+.sidebar-recent-title {
+    max-width: 160px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+/* ============================================================
+   ACTIVITY FEED (DASHBOARD + STRÁNKA ZMĚN)
+   ============================================================ */
+
+.activity-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border-color-light);
+    transition: background var(--transition);
+}
+.activity-row:last-child { border-bottom: none; }
+.activity-row:hover { background: var(--bg-surface-2); }
+
+.activity-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: var(--accent-subtle);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 14px;
+}
+.activity-title {
+    font-weight: 500;
+    color: var(--text-primary);
+    text-decoration: none;
+}
+.activity-title:hover { color: var(--accent); text-decoration: underline; }
+.activity-body { min-width: 0; }
+
+/* ============================================================
+   SLOŽKY DOKUMENTŮ
+   ============================================================ */
+
+.folder-section {
+    border: 1px solid var(--border-color-light);
+    border-radius: 8px;
+    overflow: hidden;
+}
+.folder-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--bg-surface-2);
+    border-bottom: 1px solid var(--border-color-light);
+    font-size: 14px;
+}
+.folder-docs {
+    padding: 4px 0;
+}
+.doc-folder-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 16px;
+    font-size: 13px;
+    border-bottom: 1px solid var(--border-color-light);
+    transition: background var(--transition);
+}
+.doc-folder-row:last-child { border-bottom: none; }
+.doc-folder-row:hover { background: var(--bg-surface-2); }
+.doc-folder-row a { color: var(--text-primary); text-decoration: none; flex: 1; }
+.doc-folder-row a:hover { color: var(--accent); text-decoration: underline; }
+
+/* ============================================================
+   STROM SLOŽEK (pravý panel)
+   ============================================================ */
+
+.folder-tree {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.folder-tree-item {
+    display: flex;
+    align-items: center;
+    padding: 5px 8px;
+    border-radius: 4px;
+    font-size: 13px;
+    color: var(--text-primary);
+    text-decoration: none;
+    transition: background var(--transition);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.folder-tree-item:hover {
+    background: var(--bg-surface-2);
+    color: var(--accent);
+}
+.folder-tree-root {
+    font-weight: 600;
+    border-bottom: 1px solid var(--border-color-light);
+    margin-bottom: 4px;
+    padding-bottom: 8px;
+    border-radius: 0;
+}
+.folder-tree-sub {
+    padding-left: 14px;
+}
+
+/* ============================================================
+   OBLÍBENÉ POLOŽKY – sidebar section
+   ============================================================ */
+
+.sidebar-favorite-icon {
+    color: var(--bs-warning);
+}
+
+/* ============================================================
+   STAT-CARD jako odkaz
+   ============================================================ */
+
+a.stat-card {
+    display: flex;
+    color: inherit;
+    cursor: pointer;
+}
+a.stat-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+}
+
+/* ============================================================
+   DRAG & DROP – složkové přesouvání dokumentů
+   ============================================================ */
+
+.doc-card[draggable="true"],
+.doc-folder-row[draggable="true"] {
+    cursor: grab;
+}
+.doc-card[draggable="true"]:active,
+.doc-folder-row[draggable="true"]:active {
+    cursor: grabbing;
+    opacity: 0.7;
+}
+
+.drop-target {
+    outline: 2px dashed var(--accent) !important;
+    background-color: var(--accent-subtle) !important;
+    border-radius: 6px;
+}
+.drop-target-zone {
+    outline: 2px dashed var(--accent);
+    border-radius: 6px;
+    min-height: 80px;
+}
+
+/* Aktivní složka v stromě (filtr) */
+.folder-tree-item.active {
+    background: var(--accent-subtle);
+    color: var(--accent-hover);
+    font-weight: 600;
+    border-radius: 4px;
+}

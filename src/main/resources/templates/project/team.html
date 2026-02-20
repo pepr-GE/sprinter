@@ -22,27 +22,52 @@
             <!-- Přidání člena (jen pro manažery) -->
             <div class="col-lg-4" th:if="${currentUserRole != null and currentUserRole.canManageProject()}">
                 <div class="card">
-                    <div class="card-header"><h6 class="mb-0">Přidat člena</h6></div>
+                    <div class="card-header"><h6 class="mb-0">Přidat členy</h6></div>
                     <div class="card-body">
-                        <form th:action="@{/projects/{id}/team/add(id=${project.id})}" method="post">
+                        <div th:if="${availableUsers.empty}" class="text-muted small py-2">
+                            Všichni uživatelé jsou již v týmu.
+                        </div>
+                        <form th:if="${!availableUsers.empty}"
+                              th:action="@{/projects/{id}/team/add(id=${project.id})}" method="post">
                             <div class="mb-3">
-                                <label for="userId" class="form-label">Uživatel</label>
-                                <select class="form-select" id="userId" name="userId" required>
-                                    <option value="">Vyberte uživatele...</option>
-                                    <option th:each="u : ${availableUsers}"
-                                            th:value="${u.id}"
-                                            th:text="${u.fullName + ' (@' + u.username + ')'}">Uživatel</option>
-                                </select>
+                                <label class="form-label fw-semibold">Uživatelé</label>
+                                <div class="user-checklist border rounded p-2" style="max-height: 260px; overflow-y: auto;">
+                                    <div th:each="u : ${availableUsers}" class="form-check py-1 border-bottom">
+                                        <input class="form-check-input" type="checkbox"
+                                               name="userIds" th:value="${u.id}"
+                                               th:id="'u-' + ${u.id}"/>
+                                        <label class="form-check-label d-flex align-items-center gap-2"
+                                               th:for="'u-' + ${u.id}">
+                                            <span class="user-avatar-xs" th:text="${u.initials}">??</span>
+                                            <span>
+                                                <span th:text="${u.fullName}" class="fw-medium">Jméno</span><br/>
+                                                <small class="text-muted" th:text="${'@' + u.username}">@user</small>
+                                            </span>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="d-flex gap-2 mt-1">
+                                    <button type="button" class="btn btn-link btn-sm p-0"
+                                            onclick="document.querySelectorAll('.user-checklist input').forEach(c=>c.checked=true)">
+                                        Vybrat vše
+                                    </button>
+                                    <span class="text-muted">·</span>
+                                    <button type="button" class="btn btn-link btn-sm p-0"
+                                            onclick="document.querySelectorAll('.user-checklist input').forEach(c=>c.checked=false)">
+                                        Zrušit výběr
+                                    </button>
+                                </div>
                             </div>
                             <div class="mb-3">
-                                <label for="role" class="form-label">Role v projektu</label>
+                                <label for="role" class="form-label fw-semibold">Role v projektu</label>
                                 <select class="form-select" id="role" name="role" required>
                                     <option th:each="r : ${projectRoles}"
                                             th:value="${r.name()}"
                                             th:text="${r.displayName}">Role</option>
                                 </select>
                             </div>
-                            <button type="submit" class="btn btn-primary w-100">
+                            <button type="submit" class="btn btn-primary w-100"
+                                    onclick="if(!document.querySelector('.user-checklist input:checked')){alert('Vyberte alespoň jednoho uživatele.');return false;}">
                                 <i class="bi bi-person-plus me-1"></i>Přidat do týmu
                             </button>
                         </form>

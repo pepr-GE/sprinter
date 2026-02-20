@@ -27,7 +27,7 @@
         <!-- STATISTICKÁ KARTA: Přiřazené úkoly -->
         <div class="row g-4 mb-4">
             <div class="col-sm-6 col-xl-3">
-                <div class="stat-card">
+                <a href="#my-tasks" class="stat-card text-decoration-none">
                     <div class="stat-icon bg-primary-subtle text-primary">
                         <i class="bi bi-list-check"></i>
                     </div>
@@ -35,10 +35,10 @@
                         <div class="stat-value" th:text="${myItems != null ? myItems.size() : 0}">0</div>
                         <div class="stat-label">Přiřazené úkoly</div>
                     </div>
-                </div>
+                </a>
             </div>
             <div class="col-sm-6 col-xl-3">
-                <div class="stat-card">
+                <a th:href="@{/projects}" class="stat-card text-decoration-none">
                     <div class="stat-icon bg-success-subtle text-success">
                         <i class="bi bi-folder2-open"></i>
                     </div>
@@ -46,14 +46,14 @@
                         <div class="stat-value" th:text="${projects != null ? projects.size() : 0}">0</div>
                         <div class="stat-label">Aktivní projekty</div>
                     </div>
-                </div>
+                </a>
             </div>
         </div>
 
         <div class="row g-4">
 
             <!-- PŘIŘAZENÉ ÚKOLY -->
-            <div class="col-lg-7">
+            <div class="col-lg-7" id="my-tasks">
                 <div class="card h-100">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="card-title mb-0">
@@ -126,6 +126,45 @@
             </div>
 
         </div>
+
+        <!-- PŘEHLED ZMĚN OD POSLEDNÍHO PŘIHLÁŠENÍ -->
+        <div class="row g-4 mt-2" th:if="${recentActivity != null and !recentActivity.empty}">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-clock-history me-2 text-primary"></i>Nedávné změny
+                        </h5>
+                        <a th:href="@{/activity}" class="btn btn-sm btn-outline-secondary">
+                            Zobrazit vše
+                        </a>
+                    </div>
+                    <div class="card-body p-0">
+                        <div th:each="entry : ${recentActivity}" class="activity-row">
+                            <div class="activity-icon">
+                                <i th:class="'bi ' + ${entry.icon()}"></i>
+                            </div>
+                            <div class="activity-body flex-grow-1 min-width-0">
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <span th:if="${entry.entityKey() != null}"
+                                          class="text-muted small fw-semibold"
+                                          th:text="${entry.entityKey()}">PROJ-1</span>
+                                    <a th:href="${entry.url()}"
+                                       th:text="${entry.title()}"
+                                       class="activity-title text-truncate">Název</a>
+                                </div>
+                                <div class="text-muted small mt-1">
+                                    <span th:text="${entry.authorName()}">Autor</span>
+                                    <span class="mx-1">·</span>
+                                    <span th:text="${#temporals.format(entry.timestamp(), 'd.M.yyyy HH:mm')}">1.1.2025</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div>
 </div>
 </body>

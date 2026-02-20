@@ -115,6 +115,11 @@ public class WorkItem {
     @Column(name = "logged_hours")
     private Double loggedHours;
 
+    /** Procento dokončení (0–100), zadávané ručně. */
+    @Column(name = "progress_pct")
+    @Builder.Default
+    private Integer progressPct = 0;
+
     /** Projekt, ke kterému položka patří. */
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "project_id", nullable = false)

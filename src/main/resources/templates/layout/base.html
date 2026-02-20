@@ -7,6 +7,7 @@
     <meta charset="UTF-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <meta name="description" content="SPRINTER – moderní nástroj pro řízení projektů"/>
+    <meta name="context-path" th:content="@{/}"/>
 
     <!-- Dynamický titulek stránky -->
     <title th:text="${pageTitle != null ? pageTitle + ' | SPRINTER' : 'SPRINTER'}">SPRINTER</title>
@@ -41,6 +42,32 @@
             <span class="brand-name">SPRINTER</span>
         </a>
 
+        <!-- Hlavní navigace (Dashboard, Projekty, Dokumenty) -->
+        <div class="d-none d-md-flex align-items-center gap-1 me-2">
+            <a th:href="@{/dashboard}"
+               th:classappend="${activeNav == 'dashboard'} ? 'active' : ''"
+               class="topbar-nav-link">
+                <i class="bi bi-speedometer2 me-1"></i>Dashboard
+            </a>
+            <a th:href="@{/projects}"
+               th:classappend="${activeNav == 'projects'} ? 'active' : ''"
+               class="topbar-nav-link">
+                <i class="bi bi-folder2 me-1"></i>Projekty
+            </a>
+            <a th:href="@{/documents}"
+               th:classappend="${activeNav == 'documents'} ? 'active' : ''"
+               class="topbar-nav-link">
+                <i class="bi bi-file-earmark-text me-1"></i>Dokumenty
+            </a>
+            <!-- Tlačítko pro vytvoření nové položky -->
+            <button class="btn btn-primary btn-sm d-none d-md-flex align-items-center gap-8"
+                    data-bs-toggle="modal" data-bs-target="#quickCreateModal">
+                <i class="bi bi-plus-lg"></i>
+                <span>Vytvořit</span>
+            </button>
+        </div>
+
+
         <!-- Globální vyhledávání -->
         <div class="d-none d-md-flex flex-grow-1 mx-3">
             <div class="input-group sprinter-search">
@@ -53,19 +80,6 @@
 
         <!-- Pravá část navbaru -->
         <div class="d-flex align-items-center gap-2">
-
-            <!-- Tlačítko pro vytvoření nové položky -->
-            <button class="btn btn-primary btn-sm d-none d-md-flex align-items-center gap-1"
-                    data-bs-toggle="modal" data-bs-target="#quickCreateModal">
-                <i class="bi bi-plus-lg"></i>
-                <span>Vytvořit</span>
-            </button>
-
-            <!-- Přepínač tématu -->
-            <button class="btn btn-icon" id="themeToggle" title="Přepnout téma">
-                <i class="bi bi-moon-fill theme-icon-dark d-none"></i>
-                <i class="bi bi-sun-fill theme-icon-light d-none"></i>
-            </button>
 
             <!-- Avatar uživatele (dropdown) -->
             <div class="dropdown">
@@ -112,29 +126,6 @@
     <!-- LEVÝ SIDEBAR -->
     <aside class="sprinter-sidebar" id="mainSidebar">
 
-        <!-- Odkaz na Dashboard -->
-        <div class="sidebar-section">
-            <a th:href="@{/dashboard}"
-               th:classappend="${activeNav == 'dashboard'} ? 'active' : ''"
-               class="sidebar-link">
-                <i class="bi bi-speedometer2"></i>
-                <span>Dashboard</span>
-            </a>
-            <a th:href="@{/projects}"
-               th:classappend="${activeNav == 'projects'} ? 'active' : ''"
-               class="sidebar-link">
-                <i class="bi bi-folder2"></i>
-                <span>Projekty</span>
-            </a>
-            <a sec:authorize="hasRole('ADMIN')"
-               th:href="@{/admin/users}"
-               th:classappend="${activeNav == 'admin'} ? 'active' : ''"
-               class="sidebar-link">
-                <i class="bi bi-shield-check"></i>
-                <span>Administrace</span>
-            </a>
-        </div>
-
         <!-- Navigace v rámci projektu (zobrazí se jen pokud je vybrán projekt) -->
         <div class="sidebar-section" th:if="${project != null}">
             <div class="sidebar-section-label" th:text="${project.name}">Projekt</div>
@@ -162,6 +153,12 @@
                class="sidebar-link">
                 <i class="bi bi-bar-chart-steps"></i>
                 <span>Gantt</span>
+            </a>
+            <a th:href="@{/projects/{id}/documents(id=${project.id})}"
+               th:classappend="${activeTab == 'documents'} ? 'active' : ''"
+               class="sidebar-link">
+                <i class="bi bi-file-earmark-text"></i>
+                <span>Dokumenty</span>
             </a>
             <a th:href="@{/projects/{id}/reports(id=${project.id})}"
                th:classappend="${activeTab == 'reports'} ? 'active' : ''"
@@ -193,6 +190,42 @@
                     <span th:text="${sub.name}">Podprojekt</span>
                 </a>
             </div>
+        </div>
+
+        <!-- Nedávno zobrazeno (jen mimo kontext projektu) -->
+        <div class="sidebar-section"
+             th:if="${project == null and sidebarRecent != null and !sidebarRecent.empty}">
+            <div class="sidebar-section-label">Naposledy</div>
+            <a th:each="item : ${sidebarRecent}"
+               th:href="@{${item.url()}}"
+               class="sidebar-link sidebar-link-recent">
+                <i th:class="'bi ' + ${item.icon()}"></i>
+                <span th:text="${item.title()}" class="text-truncate sidebar-recent-title">Item</span>
+            </a>
+        </div>
+
+        <!-- Oblíbené (vždy na konci) -->
+        <div class="sidebar-section"
+             th:if="${sidebarFavorites != null and !sidebarFavorites.empty}">
+            <div class="sidebar-section-label">
+                <i class="bi bi-star-fill sidebar-favorite-icon me-1"></i>Oblíbené
+            </div>
+            <a th:each="fav : ${sidebarFavorites}"
+               th:href="@{${fav.url}}"
+               class="sidebar-link sidebar-link-recent">
+                <i th:class="'bi ' + ${fav.icon ?: 'bi-star'}"></i>
+                <span th:text="${fav.title}" class="text-truncate sidebar-recent-title">Oblíbené</span>
+                <form th:action="@{/favorites/remove}" method="post" class="ms-auto"
+                      onclick="event.stopPropagation()">
+                    <input type="hidden" name="entityType" th:value="${fav.entityType}"/>
+                    <input type="hidden" name="entityId" th:value="${fav.entityId}"/>
+                    <input type="hidden" name="returnTo" th:value="@{/dashboard}"/>
+                    <button type="submit" class="btn btn-sm btn-icon text-muted p-0"
+                            title="Odebrat z oblíbených" style="line-height:1">
+                        <i class="bi bi-x" style="font-size:12px;"></i>
+                    </button>
+                </form>
+            </a>
         </div>
 
     </aside>
@@ -231,18 +264,56 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zavřít"></button>
             </div>
             <div class="modal-body">
-                <p class="text-muted">Vyberte typ položky, kterou chcete vytvořit:</p>
-                <div class="row g-3">
-                    <div class="col-6 col-md-4" th:each="proj : ${session['recentProjects'] ?: []}">
-                        <!-- Rychlý přístup k nedávným projektům -->
+                <p class="text-muted mb-3">Vyberte typ objektu, který chcete vytvořit:</p>
+
+                <!-- Položky projektu — zobrazí se jen v kontextu projektu -->
+                <div th:if="${project != null}" class="mb-3">
+                    <div class="small text-muted fw-semibold text-uppercase mb-2">
+                        <i class="bi bi-folder2 me-1"></i>Projekt: <span th:text="${project.name}">Projekt</span>
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-6 col-md-3">
+                            <a class="btn btn-outline-primary w-100 text-center"
+                               th:href="@{/projects/{id}/items/new(id=${project.id},type=TASK)}">
+                                <i class="bi bi-check-square d-block fs-3 mb-1"></i>
+                                <span class="small">Nový úkol</span>
+                            </a>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <a class="btn btn-outline-danger w-100 text-center"
+                               th:href="@{/projects/{id}/items/new(id=${project.id},type=ISSUE)}">
+                                <i class="bi bi-bug d-block fs-3 mb-1"></i>
+                                <span class="small">Nový problém</span>
+                            </a>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <a class="btn btn-outline-info w-100 text-center"
+                               th:href="@{/documents/new(projectId=${project.id})}">
+                                <i class="bi bi-file-earmark-text d-block fs-3 mb-1"></i>
+                                <span class="small">Nový dokument</span>
+                            </a>
+                        </div>
                     </div>
                 </div>
-                <div class="row g-2 mt-2">
-                    <div class="col-6 col-md-3">
-                        <a class="btn btn-outline-secondary w-100" th:href="@{/projects/new}">
-                            <i class="bi bi-folder-plus d-block fs-4 mb-1"></i>
-                            Nový projekt
-                        </a>
+
+                <!-- Globální objekty -->
+                <div>
+                    <div th:if="${project != null}" class="small text-muted fw-semibold text-uppercase mb-2">Obecné</div>
+                    <div class="row g-2">
+                        <div class="col-6 col-md-3">
+                            <a class="btn btn-outline-secondary w-100 text-center"
+                               th:href="@{/projects/new}">
+                                <i class="bi bi-folder-plus d-block fs-3 mb-1"></i>
+                                <span class="small">Nový projekt</span>
+                            </a>
+                        </div>
+                        <div class="col-6 col-md-3" th:if="${project == null}">
+                            <a class="btn btn-outline-info w-100 text-center"
+                               th:href="@{/documents/new}">
+                                <i class="bi bi-file-earmark-text d-block fs-3 mb-1"></i>
+                                <span class="small">Nový dokument</span>
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>

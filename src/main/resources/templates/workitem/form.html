@@ -21,7 +21,7 @@
             <div class="col-lg-9">
                 <div class="card">
                     <div class="card-body">
-                        <form th:action="${item != null ? '/items/' + item.id + '/edit' : '/projects/' + project.id + '/items'}"
+                        <form th:action="${item != null} ? @{/items/{id}/edit(id=${item.id})} : @{/projects/{id}/items(id=${project.id})}"
                               method="post"
                               th:object="${workItemDto}">
 
@@ -38,6 +38,7 @@
                                     <select class="form-select" id="type" th:field="*{type}" required>
                                         <option value="">Vyberte typ</option>
                                         <option th:each="t : ${workItemTypes}"
+                                                th:if="${t.visible or workItemDto.type == t}"
                                                 th:value="${t.name()}"
                                                 th:text="${t.displayName}"
                                                 th:selected="${workItemDto.type == t}">Typ</option>
@@ -93,7 +94,7 @@
                                     <input type="number" class="form-control" id="storyPoints"
                                            th:field="*{storyPoints}"
                                            min="0" max="999"
-                                           placeholder="SP"/>
+                                           placeholder=""/>
                                 </div>
 
                                 <!-- Sprint -->
@@ -132,6 +133,17 @@
                                            placeholder="0"/>
                                 </div>
 
+                                <!-- Procento dokončení -->
+                                <div class="col-md-4">
+                                    <label for="progressPct" class="form-label">
+                                        Dokončeno: <span id="progressPctVal" th:text="${workItemDto.progressPct} + '%'">0%</span>
+                                    </label>
+                                    <input type="range" class="form-range" id="progressPct"
+                                           th:field="*{progressPct}"
+                                           min="0" max="100" step="5"
+                                           oninput="document.getElementById('progressPctVal').textContent = this.value + '%'"/>
+                                </div>
+
                                 <!-- Štítky -->
                                 <div class="col-md-4">
                                     <label class="form-label">Štítky</label>
@@ -158,7 +170,7 @@
                                     <i class="bi bi-check-lg me-1"></i>
                                     <span th:text="${item != null ? 'Uložit změny' : 'Vytvořit položku'}">Uložit</span>
                                 </button>
-                                <a th:href="${item != null ? '/items/' + item.id : '/projects/' + project.id + '/backlog'}"
+                                <a th:href="${item != null} ? @{/items/{id}(id=${item.id})} : @{/projects/{id}/backlog(id=${project.id})}"
                                    class="btn btn-outline-secondary">
                                     Zrušit
                                 </a>

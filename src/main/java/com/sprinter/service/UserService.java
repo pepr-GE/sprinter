@@ -81,6 +81,18 @@ public class UserService {
         return userRepository.findUsersNotInProject(projectId);
     }
 
+    /**
+     * Zaznamenává přihlášení: uloží aktuální lastLoginAt jako previousLastLoginAt,
+     * pak nastaví lastLoginAt na aktuální čas.
+     */
+    public void recordLogin(Long userId) {
+        userRepository.findById(userId).ifPresent(user -> {
+            user.setPreviousLastLoginAt(user.getLastLoginAt());
+            user.setLastLoginAt(LocalDateTime.now());
+            userRepository.save(user);
+        });
+    }
+
     // ---- Vytváření ----
 
     /**

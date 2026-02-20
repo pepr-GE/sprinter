@@ -107,6 +107,10 @@ public class User {
     @Column(name = "last_login_at")
     private LocalDateTime lastLoginAt;
 
+    /** Čas přihlášení před posledním (pro activity feed na dashboardu). */
+    @Column(name = "previous_last_login_at")
+    private LocalDateTime previousLastLoginAt;
+
     // ---- Vztahy ----
 
     /** Členství v projektech. */

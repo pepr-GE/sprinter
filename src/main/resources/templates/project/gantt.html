@@ -68,10 +68,13 @@
     </div>
 </div>
 
+<th:block layout:fragment="head-extra">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.css"/>
+</th:block>
+
 <th:block layout:fragment="scripts">
     <!-- frappe-gantt pro Gantt diagram -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.css"/>
-    <script src="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.umd.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.min.js"></script>
     <!-- SPRINTER Gantt inicializace -->
     <script th:src="@{/static/js/gantt.js}"></script>
 </th:block>

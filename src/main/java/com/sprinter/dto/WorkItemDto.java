@@ -46,5 +46,7 @@ public class WorkItemDto {
 
     private Double estimatedHours;
 
+    private Integer progressPct = 0;
+
     private Set<Long> labelIds = new HashSet<>();
 }

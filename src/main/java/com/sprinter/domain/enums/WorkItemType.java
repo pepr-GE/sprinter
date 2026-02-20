@@ -43,4 +43,9 @@ public enum WorkItemType {
     public boolean hasStoryPoints() {
         return this == TASK || this == ISSUE || this == STORY || this == EPIC;
     }
+
+    /** Vrátí true pro typy viditelné v UI pro vytváření nových položek. */
+    public boolean isVisible() {
+        return this == TASK || this == ISSUE;
+    }
 }

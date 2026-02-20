@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="cs"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<body>
+<div layout:fragment="content">
+    <div class="page-header">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-1">
+                <li class="breadcrumb-item"><a th:href="@{/documents}">Dokumenty</a></li>
+                <li th:if="${project != null}" class="breadcrumb-item">
+                    <a th:href="@{/projects/{id}/documents(id=${project.id})}" th:text="${project.name}">Projekt</a>
+                </li>
+                <li class="breadcrumb-item active" th:text="${pageTitle}">Nový dokument</li>
+            </ol>
+        </nav>
+        <h1 class="h4 mb-0" th:text="${pageTitle}">Nový dokument</h1>
+    </div>
+
+    <div class="container-fluid px-3">
+        <div class="row justify-content-center">
+            <div class="col-xl-10">
+                <form th:action="${document != null} ? @{/documents/{id}/edit(id=${document.id})} : @{/documents}"
+                      method="post"
+                      th:object="${documentDto}">
+
+                    <div th:if="${#fields.hasGlobalErrors()}" class="alert alert-danger">
+                        <div th:each="err : ${#fields.globalErrors()}" th:text="${err}">Chyba</div>
+                    </div>
+
+                    <!-- Skrytý projekt -->
+                    <input type="hidden" th:field="*{projectId}"/>
+
+                    <!-- Název -->
+                    <div class="mb-3">
+                        <label for="title" class="form-label fw-semibold">Název dokumentu *</label>
+                        <input type="text" class="form-control form-control-lg" id="title"
+                               th:field="*{title}"
+                               placeholder="Zadejte název dokumentu..."
+                               th:classappend="${#fields.hasErrors('title')} ? 'is-invalid' : ''"
+                               required/>
+                        <div class="invalid-feedback" th:errors="*{title}">Chyba</div>
+                    </div>
+
+                    <!-- WYSIWYG editor -->
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Obsah</label>
+                        <textarea id="documentContent" th:field="*{content}"
+                                  class="form-control" rows="20"
+                                  style="display:none;"></textarea>
+                        <!-- Quill editor container -->
+                        <div id="editorContainer"></div>
+                    </div>
+
+                    <!-- Vazby na pracovní položky (jen v kontextu projektu) -->
+                    <div class="card mb-3" th:if="${projectWorkItems != null and !projectWorkItems.empty}">
+                        <div class="card-header">
+                            <h6 class="mb-0">Vazby na pracovní položky</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-2">
+                                <div th:each="wi : ${projectWorkItems}" class="col-12 col-md-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox"
+                                               th:id="${'wi-' + wi.id}"
+                                               name="linkedWorkItemIds"
+                                               th:value="${wi.id}"
+                                               th:checked="${documentDto.linkedWorkItemIds.contains(wi.id)}"/>
+                                        <label class="form-check-label small"
+                                               th:for="${'wi-' + wi.id}">
+                                            <span th:text="${wi.itemKey}" class="text-muted me-1">PROJ-1</span>
+                                            <span th:text="${wi.title}">Název</span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Akční tlačítka -->
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-floppy me-1"></i>Uložit dokument
+                        </button>
+                        <a th:href="${document != null} ? @{/documents/{id}(id=${document.id})} :
+                                    (${project != null} ? @{/projects/{id}/documents(id=${project.id})} : @{/documents})"
+                           class="btn btn-outline-secondary">Zrušit</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<th:block layout:fragment="head-extra">
+    <!-- Quill WYSIWYG editor -->
+    <link href="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.snow.css" rel="stylesheet"/>
+    <style>
+        .ql-toolbar.ql-snow { border-radius: 6px 6px 0 0; border-color: var(--border-color) !important; background: var(--bg-surface-2); }
+        .ql-container.ql-snow { border-radius: 0 0 6px 6px; border-color: var(--border-color) !important; min-height: 450px; font-size: 15px; }
+        .ql-editor { min-height: 450px; line-height: 1.7; }
+        [data-bs-theme="dark"] .ql-toolbar.ql-snow,
+        [data-bs-theme="dark"] .ql-container.ql-snow { background: var(--bg-surface); }
+        [data-bs-theme="dark"] .ql-toolbar button svg .ql-stroke { stroke: #ccc; }
+        [data-bs-theme="dark"] .ql-toolbar button svg .ql-fill { fill: #ccc; }
+        [data-bs-theme="dark"] .ql-editor { color: var(--text-primary); }
+    </style>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <!-- Quill WYSIWYG editor -->
+    <script src="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.min.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const textarea = document.getElementById('documentContent');
+
+        const quill = new Quill('#editorContainer', {
+            theme: 'snow',
+            modules: {
+                toolbar: [
+                    [{ 'header': [1, 2, 3, false] }],
+                    ['bold', 'italic', 'underline', 'strike'],
+                    ['blockquote', 'code-block'],
+                    [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+                    [{ 'indent': '-1' }, { 'indent': '+1' }],
+                    ['link', 'image'],
+                    ['clean']
+                ]
+            }
+        });
+
+        // Načtení existujícího obsahu
+        if (textarea.value && textarea.value.trim()) {
+            quill.root.innerHTML = textarea.value;
+        }
+
+        // Synchronizace před odesláním formuláře
+        document.querySelector('form').addEventListener('submit', () => {
+            textarea.value = quill.root.innerHTML === '<p><br></p>' ? '' : quill.root.innerHTML;
+        });
+    });
+    </script>
+</th:block>
+</body>
+</html>

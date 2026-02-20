@@ -1,8 +1,10 @@
 package com.sprinter.controller;
 
 import com.sprinter.security.SecurityUtils;
+import com.sprinter.security.SprinterUserDetails;
 import com.sprinter.service.UserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -50,14 +52,21 @@ public class ProfileController {
     }
 
     /**
-     * Změní UI téma (light/dark) – voláno AJAX požadavkem nebo formulářem.
+     * Změní UI téma (light/dark) a okamžitě propaguje změnu do SecurityContext,
+     * aby se nové téma projevilo bez nutnosti odhlášení.
      */
     @PostMapping("/theme")
     public String changeTheme(@RequestParam String theme,
                               @RequestParam(defaultValue = "/dashboard") String returnTo,
                               RedirectAttributes flash) {
-        SecurityUtils.getCurrentUserId().ifPresent(userId ->
-                userService.updateTheme(userId, theme));
+        SecurityUtils.getCurrentUserId().ifPresent(userId -> {
+            userService.updateTheme(userId, theme);
+            // Aktualizace in-memory kopie uživatele v SecurityContext – bez re-login
+            var auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.getPrincipal() instanceof SprinterUserDetails details) {
+                details.getUser().setUiTheme(theme);
+            }
+        });
         return "redirect:" + returnTo;
     }
 }

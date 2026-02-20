@@ -81,6 +81,11 @@
                         <div class="kanban-card-title">
                             <a th:href="@{/items/{id}(id=${item.id})}" th:text="${item.title}">Název</a>
                         </div>
+                        <div th:if="${item.progressPct != null and item.progressPct > 0}"
+                             class="progress mt-2" style="height:3px;">
+                            <div th:class="${(item.progressPct ?: 0) == 100 ? 'progress-bar bg-success' : 'progress-bar'}"
+                                 th:style="${'width:' + item.progressPct + '%'}"></div>
+                        </div>
                         <div class="kanban-card-footer d-flex justify-content-between align-items-center mt-2">
                             <div class="kanban-labels">
                                 <span th:each="label : ${item.labels}"

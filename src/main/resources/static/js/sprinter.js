@@ -17,7 +17,10 @@
    ============================================================ */
 
 document.addEventListener('DOMContentLoaded', () => {
-    initThemeToggle();
+    // Synchronizace localStorage s tématem uloženým na serveru
+    const serverTheme = document.body.getAttribute('data-bs-theme') || 'light';
+    localStorage.setItem('sprinter-theme', serverTheme);
+
     initDatepickers();
     initTooltips();
     initGlobalSearch();
@@ -26,64 +29,25 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /* ============================================================
-   PŘEPÍNAČ TÉMATU (LIGHT / DARK)
+   TÉMA (LIGHT / DARK) — jen okamžitá aplikace z localStorage
    ============================================================ */
 
-/**
- * Inicializuje přepínač tmavého/světlého tématu.
- * Téma se ukládá do localStorage pro okamžitou aplikaci,
- * ale výsledek se persistuje na serveru přes POST /profile/theme.
- */
-function initThemeToggle() {
-    const toggleBtn = document.getElementById('themeToggle');
-    if (!toggleBtn) return;
-
-    // Načtení aktuálního tématu
-    const body        = document.body;
-    const currentTheme = body.getAttribute('data-bs-theme') || 'light';
-
-    toggleBtn.addEventListener('click', async () => {
-        const current = body.getAttribute('data-bs-theme') || 'light';
-        const newTheme = current === 'light' ? 'dark' : 'light';
-
-        // Okamžitá aplikace (bez čekání na server)
-        applyTheme(newTheme);
-
-        // Uložení na server
-        try {
-            const resp = await fetch('/sprinter/profile/theme', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: `theme=${newTheme}&returnTo=${encodeURIComponent(window.location.pathname)}`
-            });
-            // Pokud server vrátí redirect, ignorujeme – téma je již aplikováno
-        } catch (e) {
-            console.warn('Nelze uložit téma na server:', e);
-        }
-
-        // Uložení do localStorage jako záloha
-        localStorage.setItem('sprinter-theme', newTheme);
-    });
-}
-
-/**
- * Aplikuje téma na element <body>.
- * @param {string} theme - 'light' nebo 'dark'
- */
-function applyTheme(theme) {
-    document.body.setAttribute('data-bs-theme', theme);
-    document.body.classList.toggle('theme-dark', theme === 'dark');
-    document.body.classList.toggle('theme-light', theme === 'light');
-}
-
 // Okamžitá aplikace tématu z localStorage (před DOMContentLoaded,
-// aby se zabránilo "bliknutí" špatného tématu)
+// aby se zabránilo "bliknutí" špatného tématu).
+// Změna tématu se provádí na stránce profilu uživatele.
 (function () {
     const saved = localStorage.getItem('sprinter-theme');
     if (saved && (saved === 'light' || saved === 'dark')) {
         document.documentElement.setAttribute('data-bs-theme', saved);
     }
 })();
+
+function applyTheme(theme) {
+    document.body.setAttribute('data-bs-theme', theme);
+    document.body.classList.toggle('theme-dark', theme === 'dark');
+    document.body.classList.toggle('theme-light', theme === 'light');
+    localStorage.setItem('sprinter-theme', theme);
+}
 
 /* ============================================================
    FLATPICKR DATEPICKERY
@@ -149,25 +113,78 @@ function initGlobalSearch() {
     const searchInput = document.getElementById('globalSearch');
     if (!searchInput) return;
 
+    const wrapper = searchInput.closest('.sprinter-search') || searchInput.parentElement;
+    wrapper.style.position = 'relative';
+    const dropdown = document.createElement('div');
+    dropdown.id = 'searchDropdown';
+    dropdown.className = 'search-dropdown';
+    dropdown.style.display = 'none';
+    wrapper.appendChild(dropdown);
+
     let searchTimeout;
+    const ctxPath = document.querySelector('meta[name="context-path"]')?.content?.replace(/\/$/, '') || '';
 
     searchInput.addEventListener('input', (e) => {
         clearTimeout(searchTimeout);
         const query = e.target.value.trim();
-        if (query.length < 2) return;
-
-        searchTimeout = setTimeout(() => {
-            // TODO: implementovat globální vyhledávání přes API
-            // a zobrazit výsledky v dropdown
-        }, 300);
+        if (query.length < 2) { dropdown.style.display = 'none'; return; }
+        searchTimeout = setTimeout(() => performSearch(query, ctxPath, dropdown), 280);
     });
 
-    // Zavření dropdown při kliknutí mimo
+    searchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') { dropdown.style.display = 'none'; searchInput.blur(); }
+    });
+
     document.addEventListener('click', (e) => {
-        if (!searchInput.contains(e.target)) {
-            // skrýt dropdown
-        }
+        if (!wrapper.contains(e.target)) dropdown.style.display = 'none';
     });
+}
+
+async function performSearch(query, ctxPath, dropdown) {
+    try {
+        const resp = await fetch(`${ctxPath}/api/v1/search?q=${encodeURIComponent(query)}`);
+        if (!resp.ok) return;
+        renderSearchDropdown(await resp.json(), ctxPath, dropdown);
+    } catch (e) { console.warn('Chyba vyhledávání:', e); }
+}
+
+function renderSearchDropdown(data, ctxPath, dropdown) {
+    const hasProjects  = data.projects  && data.projects.length  > 0;
+    const hasItems     = data.items     && data.items.length     > 0;
+    const hasDocuments = data.documents && data.documents.length > 0;
+    if (!hasProjects && !hasItems && !hasDocuments) {
+        dropdown.innerHTML = '<div class="search-dropdown-empty">Nic nenalezeno</div>';
+        dropdown.style.display = 'block';
+        return;
+    }
+    let html = '';
+    if (hasProjects) {
+        html += '<div class="search-dropdown-section">Projekty</div>';
+        data.projects.forEach(p => {
+            html += `<a href="${ctxPath}${escapeHtml(p.url)}" class="search-dropdown-item">
+                <i class="bi bi-folder2 me-2 text-muted"></i><span>${escapeHtml(p.name)}</span>
+                <small class="text-muted ms-auto">${escapeHtml(p.key)}</small></a>`;
+        });
+    }
+    if (hasItems) {
+        html += '<div class="search-dropdown-section">Položky</div>';
+        data.items.forEach(i => {
+            html += `<a href="${ctxPath}${escapeHtml(i.url)}" class="search-dropdown-item">
+                <span class="me-2 text-muted small">${escapeHtml(i.key)}</span>
+                <span>${escapeHtml(i.title)}</span>
+                <small class="text-muted ms-auto">${escapeHtml(i.projectName)}</small></a>`;
+        });
+    }
+    if (hasDocuments) {
+        html += '<div class="search-dropdown-section">Dokumenty</div>';
+        data.documents.forEach(d => {
+            html += `<a href="${ctxPath}${escapeHtml(d.url)}" class="search-dropdown-item">
+                <i class="bi bi-file-earmark-text me-2 text-muted"></i><span>${escapeHtml(d.title)}</span>
+                <small class="text-muted ms-auto">${d.projectName ? escapeHtml(d.projectName) : ''}</small></a>`;
+        });
+    }
+    dropdown.innerHTML = html;
+    dropdown.style.display = 'block';
 }
 
 /* ============================================================
@@ -300,7 +317,7 @@ function escapeHtml(str) {
 
 // Exportujeme pro použití v jiných modulech
 window.Sprinter = {
-    patch:     sprinterPatch,
-    showToast: showToast,
-    applyTheme
+    patch:      sprinterPatch,
+    showToast:  showToast,
+    applyTheme: applyTheme
 };

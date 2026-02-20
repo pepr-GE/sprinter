@@ -37,6 +37,7 @@ public class WorkItemService {
     private final CommentRepository            commentRepository;
     private final LabelRepository              labelRepository;
     private final WorkItemDependencyRepository dependencyRepository;
+    private final SprintRepository             sprintRepository;
     private final ProjectService               projectService;
     private final UserService                  userService;
 
@@ -113,7 +114,8 @@ public class WorkItemService {
     public WorkItem createWorkItem(Long projectId, WorkItemType type, String title,
                                    String description, Priority priority, Long assigneeId,
                                    Long parentId, LocalDate startDate, LocalDate dueDate,
-                                   Integer storyPoints, Set<Long> labelIds) {
+                                   Integer storyPoints, Long sprintId, Integer progressPct,
+                                   Set<Long> labelIds) {
         projectService.requireContentEditAccess(projectId);
 
         var project  = projectRepository.findById(projectId)
@@ -126,6 +128,9 @@ public class WorkItemService {
 
         User assignee = assigneeId != null ? userService.findById(assigneeId) : null;
         WorkItem parent = parentId != null ? findById(parentId) : null;
+        Sprint sprint = sprintId != null
+                ? sprintRepository.findById(sprintId).orElse(null)
+                : null;
 
         var workItem = WorkItem.builder()
                 .project(project)
@@ -138,9 +143,11 @@ public class WorkItemService {
                 .assignee(assignee)
                 .reporter(reporter)
                 .parent(parent)
+                .sprint(sprint)
                 .startDate(startDate)
                 .dueDate(dueDate)
                 .storyPoints(storyPoints)
+                .progressPct(progressPct != null ? progressPct : 0)
                 .build();
 
         // Přiřazení štítků
@@ -159,7 +166,8 @@ public class WorkItemService {
      */
     public WorkItem updateWorkItem(Long id, String title, String description, Priority priority,
                                    Long assigneeId, LocalDate startDate, LocalDate dueDate,
-                                   Integer storyPoints, Double estimatedHours, Set<Long> labelIds) {
+                                   Integer storyPoints, Double estimatedHours,
+                                   Long sprintId, Integer progressPct, Set<Long> labelIds) {
         var workItem = findById(id);
         projectService.requireContentEditAccess(workItem.getProject().getId());
 
@@ -167,10 +175,14 @@ public class WorkItemService {
         workItem.setDescription(description);
         workItem.setPriority(priority != null ? priority : workItem.getPriority());
         workItem.setAssignee(assigneeId != null ? userService.findById(assigneeId) : null);
+        workItem.setSprint(sprintId != null
+                ? sprintRepository.findById(sprintId).orElse(null)
+                : null);
         workItem.setStartDate(startDate);
         workItem.setDueDate(dueDate);
         workItem.setStoryPoints(storyPoints);
         workItem.setEstimatedHours(estimatedHours);
+        workItem.setProgressPct(progressPct != null ? progressPct : 0);
 
         // Aktualizace štítků
         workItem.getLabels().clear();
@@ -178,6 +190,18 @@ public class WorkItemService {
             workItem.getLabels().addAll(labelRepository.findAllById(labelIds));
         }
 
+        return workItemRepository.save(workItem);
+    }
+
+    /**
+     * Přiřadí položku do sprintu (nebo přesune do backlogu při sprintId == null).
+     */
+    public WorkItem changeSprint(Long id, Long sprintId) {
+        var workItem = findById(id);
+        projectService.requireContentEditAccess(workItem.getProject().getId());
+        workItem.setSprint(sprintId != null
+                ? sprintRepository.findById(sprintId).orElse(null)
+                : null);
         return workItemRepository.save(workItem);
     }
 
@@ -204,6 +228,17 @@ public class WorkItemService {
         workItem = workItemRepository.save(workItem);
         log.debug("Položka {} změnila stav {} → {}", workItem.getItemKey(), oldStatus, newStatus);
         return workItem;
+    }
+
+    /**
+     * Nastaví procento dokončení položky.
+     */
+    public WorkItem changeProgress(Long id, Integer progressPct) {
+        var workItem = findById(id);
+        projectService.requireContentEditAccess(workItem.getProject().getId());
+        int pct = progressPct != null ? Math.max(0, Math.min(100, progressPct)) : 0;
+        workItem.setProgressPct(pct);
+        return workItemRepository.save(workItem);
     }
 
     /**

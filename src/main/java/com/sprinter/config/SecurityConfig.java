@@ -1,6 +1,7 @@
 package com.sprinter.config;
 
 import com.sprinter.security.CustomUserDetailsService;
+import com.sprinter.security.LoginSuccessHandler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -12,7 +13,6 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.rememberme.JdbcTokenRepositoryImpl;
@@ -23,24 +23,19 @@ import javax.sql.DataSource;
 /**
  * Konfigurace Spring Security.
  *
- * <p>Používá form-based login (session cookies), takže funguje přirozeně
- * s Thymeleaf šablonami bez potřeby JWT. Remember-me tokeny jsou uloženy
- * v databázi (persistent token repository) pro bezpečnost.</p>
- *
- * <p>Oprávnění (authorization) na úrovni metod servisní vrstvy jsou
- * povolena pomocí {@code @EnableMethodSecurity}.</p>
+ * <p>PasswordEncoder je definován v {@link PasswordConfig}, aby se zabránilo
+ * cirkulární závislosti přes LoginSuccessHandler → UserService → PasswordEncoder.</p>
  */
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity(prePostEnabled = true)   // povolí @PreAuthorize, @PostAuthorize
+@EnableMethodSecurity(prePostEnabled = true)
 @RequiredArgsConstructor
 public class SecurityConfig {
 
     private final CustomUserDetailsService userDetailsService;
-    private final DataSource dataSource;
-
-    @Value("${sprinter.security.bcrypt-strength:12}")
-    private int bcryptStrength;
+    private final DataSource               dataSource;
+    private final LoginSuccessHandler      loginSuccessHandler;
+    private final PasswordEncoder          passwordEncoder;
 
     @Value("${sprinter.security.remember-me-key:sprinter-remember-me}")
     private String rememberMeKey;
@@ -48,38 +43,19 @@ public class SecurityConfig {
     @Value("${sprinter.security.remember-me-validity-seconds:2592000}")
     private int rememberMeValiditySeconds;
 
-    /**
-     * BCrypt encoder pro hashování hesel.
-     * Síla 12 je vhodný kompromis mezi bezpečností a výkonem.
-     */
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder(bcryptStrength);
-    }
-
-    /**
-     * Authentication provider – ověřuje uživatele v databázi.
-     */
     @Bean
     public DaoAuthenticationProvider authenticationProvider() {
         var provider = new DaoAuthenticationProvider();
         provider.setUserDetailsService(userDetailsService);
-        provider.setPasswordEncoder(passwordEncoder());
+        provider.setPasswordEncoder(passwordEncoder);
         return provider;
     }
 
-    /**
-     * Authentication manager – vstupní bod pro autentizaci.
-     */
     @Bean
     public AuthenticationManager authenticationManager() {
         return new ProviderManager(authenticationProvider());
     }
 
-    /**
-     * Perzistentní repozitář pro Remember-Me tokeny.
-     * Tokeny jsou uloženy v tabulce {@code persistent_logins}.
-     */
     @Bean
     public PersistentTokenRepository persistentTokenRepository() {
         var repo = new JdbcTokenRepositoryImpl();
@@ -87,37 +63,26 @@ public class SecurityConfig {
         return repo;
     }
 
-    /**
-     * Hlavní bezpečnostní filtr řetězce.
-     */
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            // ---- Autorizace požadavků ----
             .authorizeHttpRequests(auth -> auth
-                // Veřejně dostupné zdroje
                 .requestMatchers("/login", "/login/**").permitAll()
                 .requestMatchers("/error").permitAll()
                 .requestMatchers("/static/**", "/css/**", "/js/**", "/img/**", "/webjars/**").permitAll()
                 .requestMatchers("/actuator/health").permitAll()
-                // Admin sekce pouze pro roli ADMIN
                 .requestMatchers("/admin/**").hasRole("ADMIN")
-                // Vše ostatní vyžaduje přihlášení
                 .anyRequest().authenticated()
             )
-
-            // ---- Přihlašovací formulář ----
             .formLogin(form -> form
                 .loginPage("/login")
                 .loginProcessingUrl("/login")
-                .defaultSuccessUrl("/dashboard", true)
+                .successHandler(loginSuccessHandler)
                 .failureUrl("/login?error=true")
                 .usernameParameter("username")
                 .passwordParameter("password")
                 .permitAll()
             )
-
-            // ---- Odhlášení ----
             .logout(logout -> logout
                 .logoutUrl("/logout")
                 .logoutSuccessUrl("/login?logout=true")
@@ -125,8 +90,6 @@ public class SecurityConfig {
                 .deleteCookies("SPRINTER_SESSION", "remember-me")
                 .permitAll()
             )
-
-            // ---- Remember Me (perzistentní přihlášení) ----
             .rememberMe(rm -> rm
                 .tokenRepository(persistentTokenRepository())
                 .tokenValiditySeconds(rememberMeValiditySeconds)
@@ -134,11 +97,7 @@ public class SecurityConfig {
                 .rememberMeParameter("remember-me")
                 .userDetailsService(userDetailsService)
             )
-
-            // ---- CSRF ----
-            // CSRF je zapnuta (výchozí). Pro AJAX požadavky z HTMX se token předává
-            // v hlavičce X-CSRF-TOKEN, která je nastavena v base šabloně.
-            .csrf(AbstractHttpConfigurer::disable); // TODO: pro produkci zapnout CSRF
+            .csrf(AbstractHttpConfigurer::disable);
 
         return http.build();
     }

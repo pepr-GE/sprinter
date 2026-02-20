@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="cs"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<body>
+<div layout:fragment="content">
+    <div class="page-header">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-1">
+                        <li class="breadcrumb-item"><a th:href="@{/projects}">Projekty</a></li>
+                        <li class="breadcrumb-item"><a th:href="@{/projects/{id}(id=${project.id})}" th:text="${project.name}">Projekt</a></li>
+                        <li class="breadcrumb-item active">Dokumenty</li>
+                    </ol>
+                </nav>
+                <h1 class="h4 mb-0">Dokumenty</h1>
+            </div>
+            <div class="d-flex gap-2"
+                 th:if="${currentUserRole != null and currentUserRole.canEditContent()}">
+                <button class="btn btn-outline-secondary btn-sm"
+                        data-bs-toggle="modal" data-bs-target="#newFolderModal">
+                    <i class="bi bi-folder-plus me-1"></i>Nová složka
+                </button>
+                <a th:href="@{/documents/new(projectId=${project.id})}" class="btn btn-primary btn-sm">
+                    <i class="bi bi-plus-lg me-1"></i>Nový dokument
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="container-fluid px-3">
+        <div class="row g-4">
+
+            <!-- LEVÝ PANEL: Dokumenty -->
+            <div th:class="${folders != null and !folders.empty} ? 'col-lg-9' : 'col-12'">
+
+                <!-- Filtrace dle složky -->
+                <div th:if="${selectedFolderId != null}" class="mb-3 d-flex align-items-center gap-2">
+                    <span class="badge bg-warning text-dark">
+                        <i class="bi bi-folder-fill me-1"></i>
+                        <th:block th:each="f : ${folders}">
+                            <span th:if="${f.id == selectedFolderId}" th:text="${f.name}">Složka</span>
+                            <th:block th:each="s : ${f.children}">
+                                <span th:if="${s.id == selectedFolderId}" th:text="${s.name}">Podsložka</span>
+                            </th:block>
+                        </th:block>
+                    </span>
+                    <a th:href="@{/projects/{id}/documents(id=${project.id})}" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-x me-1"></i>Zobrazit vše
+                    </a>
+                </div>
+
+                <!-- Složkový pohled (jen když není filtr) -->
+                <div th:if="${selectedFolderId == null and folders != null and !folders.empty}" class="mb-4">
+                    <div th:each="folder : ${folders}"
+                         class="folder-section mb-3"
+                         th:id="'folder-' + ${folder.id}"
+                         ondragover="event.preventDefault(); this.classList.add('drop-target')"
+                         ondragleave="this.classList.remove('drop-target')"
+                         th:ondrop="'handleDrop(event,' + ${folder.id} + ',\'/projects/' + ${project.id} + '/documents\')'">
+                        <div class="folder-header">
+                            <i class="bi bi-folder-fill text-warning"></i>
+                            <strong th:text="${folder.name}">Složka</strong>
+                            <form th:if="${currentUserRole != null and currentUserRole.canEditContent()}"
+                                  th:action="@{/documents/folders/{id}/delete(id=${folder.id})}"
+                                  method="post" class="ms-auto d-inline"
+                                  onsubmit="return confirm('Smazat složku?')">
+                                <input type="hidden" name="projectId" th:value="${project.id}"/>
+                                <button class="btn btn-sm btn-icon text-danger" type="submit">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
+                        </div>
+                        <div class="folder-docs">
+                            <div th:each="doc : ${documents}"
+                                 th:if="${doc.folder != null and doc.folder.id == folder.id}"
+                                 class="doc-folder-row"
+                                 draggable="true"
+                                 th:attr="data-doc-id=${doc.id}"
+                                 th:ondragstart="'dragStart(event,' + ${doc.id} + ')'">
+                                <i class="bi bi-file-earmark-text text-muted"></i>
+                                <a th:href="@{/documents/{id}(id=${doc.id})}" th:text="${doc.title}" class="ms-1">Dokument</a>
+                                <span class="text-muted small ms-auto"
+                                      th:text="${#temporals.format(doc.updatedAt ?: doc.createdAt, 'd.M.yyyy')}">1.1.2025</span>
+                            </div>
+                            <!-- Podsložky -->
+                            <div th:each="sub : ${folder.children}"
+                                 class="folder-section mt-1"
+                                 th:id="'folder-' + ${sub.id}"
+                                 ondragover="event.preventDefault(); this.classList.add('drop-target')"
+                                 ondragleave="this.classList.remove('drop-target')"
+                                 th:ondrop="'handleDrop(event,' + ${sub.id} + ',\'/projects/' + ${project.id} + '/documents\')'">
+                                <div class="folder-header">
+                                    <i class="bi bi-folder text-warning"></i>
+                                    <span th:text="${sub.name}">Podsložka</span>
+                                    <form th:if="${currentUserRole != null and currentUserRole.canEditContent()}"
+                                          th:action="@{/documents/folders/{id}/delete(id=${sub.id})}"
+                                          method="post" class="ms-auto d-inline"
+                                          onsubmit="return confirm('Smazat podsložku?')">
+                                        <input type="hidden" name="projectId" th:value="${project.id}"/>
+                                        <button class="btn btn-sm btn-icon text-danger" type="submit">
+                                            <i class="bi bi-trash"></i></button>
+                                    </form>
+                                </div>
+                                <div class="folder-docs">
+                                    <div th:each="doc : ${documents}"
+                                         th:if="${doc.folder != null and doc.folder.id == sub.id}"
+                                         class="doc-folder-row"
+                                         draggable="true"
+                                         th:attr="data-doc-id=${doc.id}"
+                                         th:ondragstart="'dragStart(event,' + ${doc.id} + ')'">
+                                        <i class="bi bi-file-earmark-text text-muted"></i>
+                                        <a th:href="@{/documents/{id}(id=${doc.id})}" th:text="${doc.title}" class="ms-1">Dokument</a>
+                                        <span class="text-muted small ms-auto"
+                                              th:text="${#temporals.format(doc.updatedAt ?: doc.createdAt, 'd.M.yyyy')}">1.1.2025</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Nadpis "Bez složky" jen bez filtru -->
+                <h6 class="text-muted small text-uppercase mb-2"
+                    th:if="${selectedFolderId == null and folders != null and !folders.empty}">Bez složky</h6>
+
+                <!-- Prázdný stav -->
+                <div th:if="${documents.empty}" class="text-center py-5">
+                    <div class="empty-state">
+                        <i class="bi bi-file-earmark-text empty-state-icon"></i>
+                        <h4 th:text="${selectedFolderId != null ? 'Složka je prázdná' : 'Žádné dokumenty v projektu'}">Žádné dokumenty</h4>
+                        <p class="text-muted" th:if="${selectedFolderId == null}">Vytvořte první dokument kliknutím na tlačítko výše.</p>
+                    </div>
+                </div>
+
+                <!-- Karty dokumentů bez složky -->
+                <div class="row g-3"
+                     th:if="${selectedFolderId == null}"
+                     id="no-folder-zone"
+                     ondragover="event.preventDefault(); this.classList.add('drop-target-zone')"
+                     ondragleave="this.classList.remove('drop-target-zone')"
+                     th:ondrop="'handleDrop(event, null, \'/projects/' + ${project.id} + '/documents\')'">
+                    <div th:each="doc : ${documents}" th:if="${doc.folder == null}" class="col-12 col-md-6 col-xl-4">
+                        <div class="card h-100 doc-card"
+                             draggable="true"
+                             th:attr="data-doc-id=${doc.id}"
+                             th:ondragstart="'dragStart(event,' + ${doc.id} + ')'">
+                            <div class="card-body">
+                                <div class="d-flex align-items-start gap-2 mb-2">
+                                    <i class="bi bi-file-earmark-text fs-4" style="color: var(--accent);"></i>
+                                    <div class="flex-grow-1 min-width-0">
+                                        <a th:href="@{/documents/{id}(id=${doc.id})}"
+                                           th:text="${doc.title}"
+                                           class="fw-semibold text-decoration-none stretched-link doc-title">Dokument</a>
+                                    </div>
+                                    <div class="dropdown flex-shrink-0"
+                                         th:if="${folders != null and !folders.empty
+                                                 and currentUserRole != null and currentUserRole.canEditContent()}">
+                                        <button class="btn btn-sm btn-icon" data-bs-toggle="dropdown"
+                                                title="Přesunout do složky">
+                                            <i class="bi bi-folder-symlink"></i>
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end">
+                                            <li><h6 class="dropdown-header">Přesunout do složky</h6></li>
+                                            <li th:each="f : ${folders}">
+                                                <form th:action="@{/documents/{id}/folder(id=${doc.id})}" method="post">
+                                                    <input type="hidden" name="folderId" th:value="${f.id}"/>
+                                                    <input type="hidden" name="returnTo"
+                                                           th:value="${'/projects/' + project.id + '/documents'}"/>
+                                                    <button class="dropdown-item" type="submit" th:text="${f.name}">Složka</button>
+                                                </form>
+                                                <div th:each="s : ${f.children}">
+                                                    <form th:action="@{/documents/{id}/folder(id=${doc.id})}" method="post">
+                                                        <input type="hidden" name="folderId" th:value="${s.id}"/>
+                                                        <input type="hidden" name="returnTo"
+                                                               th:value="${'/projects/' + project.id + '/documents'}"/>
+                                                        <button class="dropdown-item ps-4" type="submit"
+                                                                th:text="${'— ' + s.name}">Podsložka</button>
+                                                    </form>
+                                                </div>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div class="d-flex align-items-center gap-2 mt-3 text-muted small">
+                                    <div class="user-avatar-xs" th:text="${doc.author.initials}"
+                                         th:title="${doc.author.fullName}">??</div>
+                                    <span th:text="${doc.author.fullName}">Autor</span>
+                                    <span class="ms-auto"
+                                          th:text="${#temporals.format(doc.updatedAt ?: doc.createdAt, 'd.M.yyyy')}">1.1.2025</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filtrovaný pohled -->
+                <div class="row g-3" th:if="${selectedFolderId != null}">
+                    <div th:each="doc : ${documents}" class="col-12 col-md-6 col-xl-4">
+                        <div class="card h-100 doc-card">
+                            <div class="card-body">
+                                <div class="d-flex align-items-start gap-2 mb-2">
+                                    <i class="bi bi-file-earmark-text fs-4" style="color: var(--accent);"></i>
+                                    <div class="flex-grow-1 min-width-0">
+                                        <a th:href="@{/documents/{id}(id=${doc.id})}"
+                                           th:text="${doc.title}"
+                                           class="fw-semibold text-decoration-none stretched-link doc-title">Dokument</a>
+                                    </div>
+                                </div>
+                                <div class="d-flex align-items-center gap-2 mt-3 text-muted small">
+                                    <div class="user-avatar-xs" th:text="${doc.author.initials}"
+                                         th:title="${doc.author.fullName}">??</div>
+                                    <span th:text="${doc.author.fullName}">Autor</span>
+                                    <span class="ms-auto"
+                                          th:text="${#temporals.format(doc.updatedAt ?: doc.createdAt, 'd.M.yyyy')}">1.1.2025</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PRAVÝ PANEL: Strom složek (filtr + drag target) -->
+            <div class="col-lg-3" th:if="${folders != null and !folders.empty}">
+                <div class="card sticky-top" style="top: 1rem;">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0"><i class="bi bi-folder2 me-2"></i>Složky</h6>
+                        <button th:if="${currentUserRole != null and currentUserRole.canEditContent()}"
+                                class="btn btn-sm btn-icon" data-bs-toggle="modal"
+                                data-bs-target="#newFolderModal" title="Nová složka">
+                            <i class="bi bi-folder-plus"></i>
+                        </button>
+                    </div>
+                    <div class="card-body p-2">
+                        <div class="folder-tree">
+                            <a th:href="@{/projects/{id}/documents(id=${project.id})}"
+                               th:classappend="${selectedFolderId == null} ? ' active' : ''"
+                               class="folder-tree-item folder-tree-root"
+                               ondragover="event.preventDefault(); this.classList.add('drop-target')"
+                               ondragleave="this.classList.remove('drop-target')"
+                               th:ondrop="'handleDrop(event, null, \'/projects/' + ${project.id} + '/documents\')'">
+                                <i class="bi bi-house me-1"></i>Vše
+                            </a>
+                            <div th:each="folder : ${folders}">
+                                <a th:href="@{/projects/{id}/documents(id=${project.id},folderId=${folder.id})}"
+                                   th:classappend="${selectedFolderId == folder.id} ? ' active' : ''"
+                                   class="folder-tree-item"
+                                   ondragover="event.preventDefault(); this.classList.add('drop-target')"
+                                   ondragleave="this.classList.remove('drop-target')"
+                                   th:ondrop="'handleDrop(event,' + ${folder.id} + ',\'/projects/' + ${project.id} + '/documents\')'">
+                                    <i class="bi bi-folder-fill text-warning me-1"></i>
+                                    <span th:text="${folder.name}">Složka</span>
+                                </a>
+                                <div th:each="sub : ${folder.children}" class="folder-tree-sub">
+                                    <a th:href="@{/projects/{id}/documents(id=${project.id},folderId=${sub.id})}"
+                                       th:classappend="${selectedFolderId == sub.id} ? ' active' : ''"
+                                       class="folder-tree-item"
+                                       ondragover="event.preventDefault(); this.classList.add('drop-target')"
+                                       ondragleave="this.classList.remove('drop-target')"
+                                       th:ondrop="'handleDrop(event,' + ${sub.id} + ',\'/projects/' + ${project.id} + '/documents\')'">
+                                        <i class="bi bi-folder text-warning me-1"></i>
+                                        <span th:text="${sub.name}">Podsložka</span>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Modal: Nová složka -->
+    <div class="modal fade" id="newFolderModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-folder-plus me-2"></i>Nová složka</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form th:action="@{/documents/folders}" method="post">
+                    <div class="modal-body">
+                        <input type="hidden" name="projectId" th:value="${project.id}"/>
+                        <input type="text" name="name" class="form-control"
+                               placeholder="Název složky" required autofocus/>
+                        <select name="parentId" class="form-select mt-2"
+                                th:if="${folders != null and !folders.empty}">
+                            <option value="">Kořenová složka</option>
+                            <option th:each="f : ${folders}" th:value="${f.id}" th:text="${f.name}">Složka</option>
+                        </select>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Zrušit</button>
+                        <button type="submit" class="btn btn-primary btn-sm">Vytvořit</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    let draggedDocId = null;
+    const ctxPath = document.querySelector('meta[name="context-path"]').getAttribute('content').replace(/\/$/, '');
+
+    function dragStart(event, docId) {
+        draggedDocId = docId;
+        event.dataTransfer.effectAllowed = 'move';
+    }
+
+    function handleDrop(event, folderId, returnTo) {
+        event.preventDefault();
+        event.currentTarget.classList.remove('drop-target');
+        if (!draggedDocId) return;
+
+        const form = document.createElement('form');
+        form.method = 'post';
+        form.action = ctxPath + '/documents/' + draggedDocId + '/folder';
+        if (folderId !== null) {
+            const fi = document.createElement('input');
+            fi.type = 'hidden'; fi.name = 'folderId'; fi.value = folderId;
+            form.appendChild(fi);
+        }
+        const ri = document.createElement('input');
+        ri.type = 'hidden'; ri.name = 'returnTo'; ri.value = returnTo;
+        form.appendChild(ri);
+        document.body.appendChild(form);
+        form.submit();
+    }
+    </script>
+</div>
+</body>
+</html>

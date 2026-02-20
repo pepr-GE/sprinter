@@ -4,6 +4,7 @@ import com.sprinter.domain.enums.*;
 import com.sprinter.dto.WorkItemDto;
 import com.sprinter.security.SecurityUtils;
 import com.sprinter.service.*;
+import com.sprinter.domain.repository.DocumentRepository;
 import com.sprinter.domain.repository.LabelRepository;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -20,11 +21,12 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 @RequiredArgsConstructor
 public class WorkItemController {
 
-    private final WorkItemService workItemService;
-    private final ProjectService  projectService;
-    private final UserService     userService;
-    private final SprintService   sprintService;
-    private final LabelRepository labelRepository;
+    private final WorkItemService  workItemService;
+    private final ProjectService   projectService;
+    private final UserService      userService;
+    private final SprintService    sprintService;
+    private final LabelRepository  labelRepository;
+    private final DocumentRepository documentRepository;
 
     // ---- Formulář nové položky ----
 
@@ -68,7 +70,7 @@ public class WorkItemController {
                     projectId, dto.getType(), dto.getTitle(), dto.getDescription(),
                     dto.getPriority(), dto.getAssigneeId(), dto.getParentId(),
                     dto.getStartDate(), dto.getDueDate(), dto.getStoryPoints(),
-                    dto.getLabelIds());
+                    dto.getSprintId(), dto.getProgressPct(), dto.getLabelIds());
 
             flash.addFlashAttribute("successMessage",
                     "Položka " + item.getItemKey() + " byla vytvořena.");
@@ -99,6 +101,7 @@ public class WorkItemController {
         model.addAttribute("statuses",          WorkItemStatus.values());
         model.addAttribute("priorities",        Priority.values());
         model.addAttribute("projectMembers",    userService.findProjectMembers(item.getProject().getId()));
+        model.addAttribute("linkedDocuments",   documentRepository.findByLinkedWorkItemId(id));
         model.addAttribute("pageTitle",         item.getItemKey() + " – " + item.getTitle());
         return "workitem/detail";
     }
@@ -132,6 +135,8 @@ public class WorkItemController {
         dto.setDueDate(item.getDueDate());
         dto.setStoryPoints(item.getStoryPoints());
         dto.setEstimatedHours(item.getEstimatedHours());
+        dto.setSprintId(item.getSprint() != null ? item.getSprint().getId() : null);
+        dto.setProgressPct(item.getProgressPct() != null ? item.getProgressPct() : 0);
         item.getLabels().forEach(l -> dto.getLabelIds().add(l.getId()));
 
         addFormAttributes(model, projectId, item.getProject().getProjectKey());
@@ -160,13 +165,28 @@ public class WorkItemController {
             workItemService.updateWorkItem(id, dto.getTitle(), dto.getDescription(),
                     dto.getPriority(), dto.getAssigneeId(), dto.getStartDate(),
                     dto.getDueDate(), dto.getStoryPoints(), dto.getEstimatedHours(),
-                    dto.getLabelIds());
+                    dto.getSprintId(), dto.getProgressPct(), dto.getLabelIds());
             flash.addFlashAttribute("successMessage", "Položka byla aktualizována.");
         } catch (Exception e) {
             flash.addFlashAttribute("errorMessage", e.getMessage());
         }
 
         return "redirect:/items/" + id;
+    }
+
+    // ---- Přiřazení do sprintu ----
+
+    @PostMapping("/items/{id}/sprint")
+    public String changeSprint(@PathVariable Long id,
+                               @RequestParam(required = false) Long sprintId,
+                               @RequestParam(defaultValue = "") String returnTo,
+                               RedirectAttributes flash) {
+        try {
+            workItemService.changeSprint(id, sprintId);
+        } catch (Exception e) {
+            flash.addFlashAttribute("errorMessage", e.getMessage());
+        }
+        return returnTo.isBlank() ? "redirect:/items/" + id : "redirect:" + returnTo;
     }
 
     // ---- Změna stavu ----
@@ -182,6 +202,21 @@ public class WorkItemController {
             flash.addFlashAttribute("errorMessage", e.getMessage());
         }
 
+        return returnTo.isBlank() ? "redirect:/items/" + id : "redirect:" + returnTo;
+    }
+
+    // ---- Procento dokončení ----
+
+    @PostMapping("/items/{id}/progress")
+    public String changeProgress(@PathVariable Long id,
+                                 @RequestParam Integer progressPct,
+                                 @RequestParam(defaultValue = "") String returnTo,
+                                 RedirectAttributes flash) {
+        try {
+            workItemService.changeProgress(id, progressPct);
+        } catch (Exception e) {
+            flash.addFlashAttribute("errorMessage", e.getMessage());
+        }
         return returnTo.isBlank() ? "redirect:/items/" + id : "redirect:" + returnTo;
     }
 

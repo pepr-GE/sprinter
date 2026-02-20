@@ -27,15 +27,18 @@ let ganttInstance = null;
 
 /**
  * Načte data a inicializuje Ganttův diagram.
- * @param {HTMLElement} container - container element
- * @param {string}      projectId - ID projektu
  */
 async function initGanttChart(container, projectId) {
     try {
-        // Zobrazení skeleton loadingu
         container.innerHTML = '<div class="skeleton" style="height:400px;border-radius:8px;"></div>';
 
-        const resp  = await fetch(`/sprinter/api/v1/projects/${projectId}/gantt-items`);
+        const ctxPath = document.querySelector('meta[name="context-path"]')?.content?.replace(/\/$/, '') || '';
+        const resp = await fetch(`${ctxPath}/api/v1/projects/${projectId}/gantt-items`);
+
+        if (!resp.ok) {
+            throw new Error(`Server vrátil chybu ${resp.status}: ${resp.statusText}`);
+        }
+
         const items = await resp.json();
 
         if (!items || items.length === 0) {
@@ -47,58 +50,65 @@ async function initGanttChart(container, projectId) {
             return;
         }
 
+        const today = new Date().toISOString().split('T')[0];
+
         // Transformace dat do formátu frappe-gantt
-        const tasks = items.map(item => ({
-            id:          item.id,
-            name:        item.text,
-            start:       item.startDate || new Date().toISOString().split('T')[0],
-            end:         item.endDate   || addDays(item.startDate || new Date().toISOString().split('T')[0], 7),
-            progress:    item.progress,
-            dependencies: item.dependencies || [],
-            custom_class: getGanttBarClass(item.type, item.status)
-        }));
+        const tasks = items.map(item => {
+            // Pokud chybí start, odvodíme ho 7 dní před koncem; pokud chybí konec, 7 dní po začátku
+            const startStr = item.startDate || (item.endDate ? addDays(item.endDate, -7) : today);
+            const endStr   = item.endDate   || addDays(startStr, 7);
+
+            return {
+                id:           String(item.id),
+                name:         item.text,
+                start:        startStr,
+                end:          endStr,
+                progress:     item.progress || 0,
+                dependencies: '',
+                custom_class: getGanttBarClass(item.type, item.status)
+            };
+        });
 
         // Čistý kontejner
         container.innerHTML = '';
 
         // Inicializace frappe-gantt
         ganttInstance = new Gantt(container, tasks, {
-            header_height:   50,
-            column_width:    30,
-            step:            24,
-            view_modes:      ['Day', 'Week', 'Month'],
-            bar_height:      28,
+            header_height:    50,
+            column_width:     30,
+            step:             24,
+            view_modes:       ['Day', 'Week', 'Month'],
+            bar_height:       28,
             bar_corner_radius: 4,
-            arrow_curve:     5,
-            padding:         18,
-            view_mode:       'Week',
-            date_format:     'YYYY-MM-DD',
-            language:        'cs',
+            arrow_curve:      5,
+            padding:          18,
+            view_mode:        'Week',
+            date_format:      'YYYY-MM-DD',
+            popup_trigger:    'click',
 
-            // Klik na úkol otevře detail
             on_click: (task) => {
                 const itemId = task.id.replace('wi-', '');
-                window.location.href = `/sprinter/items/${itemId}`;
+                const cp = document.querySelector('meta[name="context-path"]')?.content?.replace(/\/$/, '') || '';
+                window.location.href = `${cp}/items/${itemId}`;
             },
 
-            // Hover tooltip
             on_view_change: (mode) => {
                 updateViewButtons(mode);
             }
         });
 
     } catch (err) {
-        console.error('Chyba při načítání Gantt diagramu:', err);
+        console.error('Chyba Gantt diagramu:', err);
         container.innerHTML = `
             <div class="alert alert-danger m-3">
-                Chyba při načítání dat pro Ganttův diagram.
+                <strong>Chyba při načítání dat pro Ganttův diagram.</strong>
+                <div class="small text-muted mt-1">${err.message}</div>
             </div>`;
     }
 }
 
 /**
  * Přepíná pohled (Den / Týden / Měsíc).
- * @param {string} mode - 'Day' | 'Week' | 'Month'
  */
 function setViewMode(mode) {
     if (ganttInstance) {
@@ -109,7 +119,6 @@ function setViewMode(mode) {
 
 /**
  * Aktualizuje vizuál přepínacích tlačítek pohledu.
- * @param {string} activeMode
  */
 function updateViewButtons(activeMode) {
     const mapping = { Day: 'viewDay', Week: 'viewWeek', Month: 'viewMonth' };
@@ -123,9 +132,6 @@ function updateViewButtons(activeMode) {
 
 /**
  * Vrátí CSS třídu pro pruh Ganttova diagramu dle typu a stavu položky.
- * @param {string} type   - typ položky (TASK, ISSUE, STORY, EPIC)
- * @param {string} status - stav položky
- * @returns {string} CSS třída
  */
 function getGanttBarClass(type, status) {
     if (status === 'DONE' || status === 'CANCELLED') return 'gantt-bar-done';
@@ -140,9 +146,6 @@ function getGanttBarClass(type, status) {
 
 /**
  * Přidá k datu N dní.
- * @param {string} dateStr - ISO datum (YYYY-MM-DD)
- * @param {number} days    - počet dní
- * @returns {string} nové datum
  */
 function addDays(dateStr, days) {
     const date = new Date(dateStr);

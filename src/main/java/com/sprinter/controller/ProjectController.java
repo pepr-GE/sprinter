@@ -3,6 +3,7 @@ package com.sprinter.controller;
 import com.sprinter.domain.entity.Project;
 import com.sprinter.domain.enums.ProjectRole;
 import com.sprinter.domain.enums.ProjectStatus;
+import com.sprinter.domain.enums.WorkItemStatus;
 import com.sprinter.dto.ProjectDto;
 import com.sprinter.security.SecurityUtils;
 import com.sprinter.service.*;
@@ -14,6 +15,7 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -37,6 +39,7 @@ public class ProjectController {
     private final WorkItemService workItemService;
     private final ReportService   reportService;
     private final UserService     userService;
+    private final FavoriteService favoriteService;
 
     // ---- Seznam projektů ----
 
@@ -63,6 +66,7 @@ public class ProjectController {
         model.addAttribute("completionPercent", reportService.getProjectCompletionPercent(id));
         model.addAttribute("activeSprint",      sprintService.findActiveSprint(id).orElse(null));
         model.addAttribute("members",           projectService.findMembers(id));
+        model.addAttribute("isFavorite",        favoriteService.isFavorite("project", id));
         model.addAttribute("pageTitle",         project.getName());
         model.addAttribute("activeTab",         "overview");
         return "project/overview";
@@ -102,6 +106,7 @@ public class ProjectController {
         addProjectCommonAttributes(model, project);
         model.addAttribute("backlogItems", workItemService.findBacklog(id));
         model.addAttribute("sprints",      sprintService.findByProject(id));
+        model.addAttribute("statuses",     WorkItemStatus.values());
         model.addAttribute("activeTab",    "backlog");
         model.addAttribute("pageTitle",    project.getName() + " – Backlog");
         return "project/backlog";
@@ -261,13 +266,18 @@ public class ProjectController {
 
     @PostMapping("/{id}/team/add")
     public String addTeamMember(@PathVariable Long id,
-                                @RequestParam Long userId,
+                                @RequestParam List<Long> userIds,
                                 @RequestParam ProjectRole role,
                                 RedirectAttributes flash) {
         try {
             projectService.requireManageAccess(id);
-            projectService.addMember(id, userId, role);
-            flash.addFlashAttribute("successMessage", "Člen byl přidán do týmu.");
+            int added = 0;
+            for (Long userId : userIds) {
+                projectService.addMember(id, userId, role);
+                added++;
+            }
+            flash.addFlashAttribute("successMessage",
+                    added == 1 ? "Člen byl přidán do týmu." : "Přidáno " + added + " členů do týmu.");
         } catch (Exception e) {
             flash.addFlashAttribute("errorMessage", e.getMessage());
         }

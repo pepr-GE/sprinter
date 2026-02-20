@@ -2,10 +2,16 @@ package com.sprinter.api;
 
 import com.sprinter.domain.entity.WorkItem;
 import com.sprinter.domain.enums.WorkItemStatus;
+import com.sprinter.domain.repository.DocumentRepository;
+import com.sprinter.domain.repository.ProjectRepository;
+import com.sprinter.domain.repository.WorkItemRepository;
+import com.sprinter.security.SecurityUtils;
+import com.sprinter.service.ProjectService;
 import com.sprinter.service.SprintService;
 import com.sprinter.service.WorkItemService;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -27,8 +33,12 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class WorkItemApiController {
 
-    private final WorkItemService workItemService;
-    private final SprintService   sprintService;
+    private final WorkItemService    workItemService;
+    private final SprintService      sprintService;
+    private final ProjectService     projectService;
+    private final ProjectRepository  projectRepository;
+    private final WorkItemRepository workItemRepository;
+    private final DocumentRepository documentRepository;
 
     /**
      * Změní stav pracovní položky (pro Kanban drag &amp; drop).
@@ -81,6 +91,72 @@ public class WorkItemApiController {
                 .map(WorkItemSummary::fromEntity)
                 .toList();
         return ResponseEntity.ok(items);
+    }
+
+    /**
+     * Globální vyhledávání – projekty a pracovní položky přístupné přihlášenému uživateli.
+     */
+    @GetMapping("/search")
+    public ResponseEntity<SearchResults> search(@RequestParam String q) {
+        if (q == null || q.trim().length() < 2) {
+            return ResponseEntity.ok(new SearchResults());
+        }
+        String term = q.trim();
+
+        // Projekty dostupné aktuálnímu uživateli
+        var userId   = SecurityUtils.getCurrentUserId().orElse(null);
+        var projects = userId != null
+                ? projectRepository.searchProjects(term).stream()
+                    .filter(p -> projectService.getCurrentUserRole(p.getId()).isPresent())
+                    .limit(5).toList()
+                : java.util.List.<com.sprinter.domain.entity.Project>of();
+
+        // Pracovní položky v dostupných projektech
+        var accessibleProjectIds = userId != null
+                ? projectRepository.findProjectsForUser(userId).stream()
+                    .map(com.sprinter.domain.entity.Project::getId).toList()
+                : java.util.List.<Long>of();
+
+        var workItems = accessibleProjectIds.isEmpty()
+                ? java.util.List.<WorkItem>of()
+                : workItemRepository.searchInProjects(accessibleProjectIds, term, PageRequest.of(0, 8));
+
+        // Dokumenty v dostupných projektech
+        var documents = accessibleProjectIds.isEmpty()
+                ? java.util.List.<com.sprinter.domain.entity.Document>of()
+                : documentRepository.searchInProjects(accessibleProjectIds, term).stream()
+                    .limit(5).toList();
+
+        var result = new SearchResults();
+        result.projects  = projects.stream().map(p -> {
+            var r = new SearchResults.ProjectResult();
+            r.id   = p.getId();
+            r.name = p.getName();
+            r.key  = p.getProjectKey();
+            r.url  = "/projects/" + p.getId();
+            return r;
+        }).toList();
+        result.items = workItems.stream().map(wi -> {
+            var r = new SearchResults.ItemResult();
+            r.id          = wi.getId();
+            r.key         = wi.getItemKey();
+            r.title       = wi.getTitle();
+            r.type        = wi.getType().name();
+            r.typeLabel   = wi.getType().getDisplayName();
+            r.status      = wi.getStatus().getDisplayName();
+            r.projectName = wi.getProject().getName();
+            r.url         = "/items/" + wi.getId();
+            return r;
+        }).toList();
+        result.documents = documents.stream().map(d -> {
+            var r = new SearchResults.DocumentResult();
+            r.id          = d.getId();
+            r.title       = d.getTitle();
+            r.projectName = d.getProject() != null ? d.getProject().getName() : null;
+            r.url         = "/documents/" + d.getId();
+            return r;
+        }).toList();
+        return ResponseEntity.ok(result);
     }
 
     /**
@@ -138,6 +214,39 @@ public class WorkItemApiController {
     }
 
     @Data
+    public static class SearchResults {
+        public java.util.List<ProjectResult>  projects  = new java.util.ArrayList<>();
+        public java.util.List<ItemResult>     items     = new java.util.ArrayList<>();
+        public java.util.List<DocumentResult> documents = new java.util.ArrayList<>();
+
+        @Data
+        public static class ProjectResult {
+            public Long   id;
+            public String name;
+            public String key;
+            public String url;
+        }
+        @Data
+        public static class ItemResult {
+            public Long   id;
+            public String key;
+            public String title;
+            public String type;
+            public String typeLabel;
+            public String status;
+            public String projectName;
+            public String url;
+        }
+        @Data
+        public static class DocumentResult {
+            public Long   id;
+            public String title;
+            public String projectName;
+            public String url;
+        }
+    }
+
+    @Data
     public static class GanttItem {
         private String id;
         private String text;
@@ -156,7 +265,7 @@ public class WorkItemApiController {
             g.text      = "[" + wi.getItemKey() + "] " + wi.getTitle();
             g.startDate = wi.getStartDate()    != null ? wi.getStartDate().toString()    : null;
             g.endDate   = wi.getDueDate()      != null ? wi.getDueDate().toString()      : null;
-            g.progress  = wi.isDone() ? 100 : 0;
+            g.progress  = wi.getProgressPct() != null ? wi.getProgressPct() : (wi.isDone() ? 100 : 0);
             g.parent    = wi.getParent()       != null ? "wi-" + wi.getParent().getId()  : null;
             g.type      = wi.getType().name();
             g.status    = wi.getStatus().name();

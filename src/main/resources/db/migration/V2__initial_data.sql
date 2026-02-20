@@ -5,12 +5,12 @@
 -- =============================================================================
 
 -- Výchozí správce systému
--- Heslo: Admin123! (BCrypt hash síla 12)
+-- Heslo: Admin123! (BCrypt hash síla 10, generováno pgcrypto)
 INSERT INTO users (username, email, password_hash, first_name, last_name, system_role, active)
 VALUES (
     'admin',
     'admin@sprinter.local',
-    '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewmjRNHHPWt5eJRa',  -- Admin123!
+    '$2a$10$hZcKQNRzhtkjxtWp7hf0V.xnAihmdPGv9dsNu4.gR9eH8v/g1ySzS',  -- Admin123!
     'Správce',
     'Systému',
     'ADMIN',
